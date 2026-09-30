@@ -43,13 +43,10 @@ export function LoginPage({ role }: { role: Role }) {
         {role === "USER" ? (
           <TextInput
             id="identifier"
-            label="ID"
+            label="ID or email"
             type="text"
-            inputMode="numeric"
-            pattern="\d{4}"
-            maxLength={4}
             autoComplete="username"
-            placeholder="4-digit ID"
+            placeholder="4-digit ID or email"
             required
             value={identifier}
             onChange={(e) => setIdentifier(e.target.value)}
@@ -78,13 +75,13 @@ export function LoginPage({ role }: { role: Role }) {
           {submitting ? "Logging in..." : "Log in"}
         </Button>
       </form>
-      {/* Delegates have no email on file to send a reset link to — an admin
-          resets their password from the Users page instead. */}
-      {role === "SUPERADMIN" && (
-        <p className="muted" style={{ marginTop: 16 }}>
-          <Link to="/forgot-password">Forgot your password?</Link>
-        </p>
-      )}
+      {/* Works for anyone with an email on file (admins, team members). An
+          ID-only delegate has no email to send a link to, so this just
+          shows the generic "if that address exists" message for them — an
+          admin resets their password from the Users page instead. */}
+      <p className="muted" style={{ marginTop: 16 }}>
+        <Link to="/forgot-password">Forgot your password?</Link>
+      </p>
     </>
   );
 

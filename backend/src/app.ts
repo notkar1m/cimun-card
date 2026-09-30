@@ -10,7 +10,6 @@ import offersRoutes from "./modules/offers/offers.routes";
 import activationsRoutes from "./modules/activations/activations.routes";
 import usersRoutes from "./modules/users/users.routes";
 import adminsRoutes from "./modules/admins/admins.routes";
-import broadcastRoutes from "./modules/broadcast/broadcast.routes";
 import { settingsRouter, adminSettingsRouter } from "./modules/settings/settings.routes";
 import { wrappedRouter } from "./modules/wrapped/wrapped.routes";
 
@@ -31,7 +30,6 @@ export function createApp() {
   app.use("/api", wrappedRouter);
   app.use("/api/admin/users", usersRoutes);
   app.use("/api/admin/admins", adminsRoutes);
-  app.use("/api/admin/broadcast", broadcastRoutes);
   app.use("/api/admin/settings", adminSettingsRouter);
 
   // Only present when the frontend was built into this image (the

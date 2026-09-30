@@ -3,7 +3,7 @@ import { useAuth } from "./auth/AuthContext";
 import { ProtectedRoute } from "./auth/ProtectedRoute";
 import { Layout } from "./components/Layout";
 import { UserLayout } from "./components/UserLayout";
-import { AccountIcon, GearIcon, MailIcon, PeopleIcon, ShieldIcon, TagIcon } from "./components/icons";
+import { AccountIcon, GearIcon, PeopleIcon, ShieldIcon, TagIcon } from "./components/icons";
 import { LoginPage } from "./pages/auth/LoginPage";
 import { ForgotPasswordPage } from "./pages/auth/ForgotPasswordPage";
 import { ResetPasswordPage } from "./pages/auth/ResetPasswordPage";
@@ -18,7 +18,6 @@ import { UsersList } from "./pages/admin/UsersList";
 import { UserForm } from "./pages/admin/UserForm";
 import { AdminsList } from "./pages/admin/AdminsList";
 import { AdminForm } from "./pages/admin/AdminForm";
-import { BroadcastPage } from "./pages/admin/BroadcastPage";
 import { SettingsPage } from "./pages/admin/SettingsPage";
 import { WrappedPage } from "./pages/user/WrappedPage";
 
@@ -63,7 +62,6 @@ export function App() {
                 { to: "/admin/offers", label: "Offers", icon: <TagIcon /> },
                 { to: "/admin/users", label: "Users", icon: <PeopleIcon /> },
                 { to: "/admin/admins", label: "Admins", icon: <ShieldIcon /> },
-                { to: "/admin/broadcast", label: "Broadcast", icon: <MailIcon /> },
                 { to: "/admin/settings", label: "Settings", icon: <GearIcon /> },
                 { to: "/admin/account", label: "Account", icon: <AccountIcon /> },
               ]}
@@ -77,7 +75,6 @@ export function App() {
           <Route path="/admin/users/new" element={<UserForm />} />
           <Route path="/admin/admins" element={<AdminsList />} />
           <Route path="/admin/admins/new" element={<AdminForm />} />
-          <Route path="/admin/broadcast" element={<BroadcastPage />} />
           <Route path="/admin/settings" element={<SettingsPage />} />
           <Route path="/admin/account" element={<ChangePasswordPage />} />
         </Route>

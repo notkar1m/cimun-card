@@ -1029,6 +1029,21 @@ tbody tr:hover {
   gap: 16px;
 }
 
+.user-management-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  margin-bottom: 20px;
+}
+
+.user-management-label {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
 .settings-list {
   padding: 4px 20px;
 }
