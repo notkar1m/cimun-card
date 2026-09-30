@@ -1,0 +1,123 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  // DATABASE_URL is the pooled (PgBouncer) connection Neon gives you, used
+  // at request time. DIRECT_URL is the unpooled one, used only for running
+  // migrations — pooled connections don't reliably support the advisory
+  // locks/DDL migrations need. Both point at the same database; if you're
+  // not using a pooled provider, just set them to the same value.
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  SUPERADMIN
+  USER
+}
+
+enum ActivationStatus {
+  ACTIVE
+  REDEEMED
+}
+
+enum RedemptionType {
+  CARD
+  PROMO
+}
+
+enum VendorTier {
+  SILVER
+  GOLD
+  DIAMOND
+}
+
+model Account {
+  id                   String    @id @default(uuid())
+  email                String    @unique
+  name                 String
+  passwordHash         String
+  roles                Role[]
+  // The one admin who can manage other admin accounts (create/delete them).
+  // Every other admin has identical access to the app itself, but can't
+  // touch another admin's account. Existing SUPERADMIN accounts are
+  // grandfathered as owners by the migration that introduced this column.
+  isOwner              Boolean   @default(false)
+  mustChangePassword   Boolean   @default(false)
+  phone                String?
+  resetTokenHash       String?
+  resetTokenExpiresAt  DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  activations          Activation[] @relation("UserActivations")
+  redemptionsPerformed Activation[] @relation("RedeemedBy")
+}
+
+model Offer {
+  id             String         @id @default(uuid())
+  vendorName     String
+  tier           VendorTier     @default(GOLD)
+  sortOrder      Int            @default(0)
+  title          String
+  description    String
+  discountPercent Int?
+  imageUrl       String?
+  active         Boolean        @default(true)
+  redemptionType RedemptionType @default(CARD)
+  promoCode      String?
+  tags           String[]       @default([])
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  activations Activation[]
+  branches    Branch[]
+
+  @@index([active])
+}
+
+model Branch {
+  id        String   @id @default(uuid())
+  label     String?
+  lat       Float
+  lng       Float
+  createdAt DateTime @default(now())
+
+  offerId String
+  offer   Offer  @relation(fields: [offerId], references: [id], onDelete: Cascade)
+
+  @@index([offerId])
+}
+
+model Activation {
+  id           String           @id @default(uuid())
+  code         String           @unique
+  status       ActivationStatus @default(ACTIVE)
+
+  offerId      String
+  offer        Offer            @relation(fields: [offerId], references: [id], onDelete: Cascade)
+
+  userId       String
+  user         Account          @relation("UserActivations", fields: [userId], references: [id])
+
+  activatedAt  DateTime         @default(now())
+
+  redeemedAt   DateTime?
+  redeemedById String?
+  redeemedBy   Account?         @relation("RedeemedBy", fields: [redeemedById], references: [id])
+
+  @@index([offerId])
+  @@index([userId])
+  @@index([status])
+  @@index([status, offerId])
+}
+
+// Singleton row (id is always "global") holding app-wide feature toggles.
+model AppSettings {
+  id             String   @id @default("global")
+  mapTabEnabled  Boolean  @default(true)
+  wrappedEnabled Boolean  @default(true)
+  updatedAt      DateTime @updatedAt
+}
