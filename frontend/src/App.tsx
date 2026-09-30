@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { useAuth } from "./auth/AuthContext";
 import { ProtectedRoute } from "./auth/ProtectedRoute";
@@ -11,15 +12,27 @@ import { ChangePasswordPage } from "./pages/auth/ChangePasswordPage";
 import { HomeFeed } from "./pages/user/HomeFeed";
 import { OfferDetail } from "./pages/user/OfferDetail";
 import { MyActivations } from "./pages/user/MyActivations";
-import { MapPage } from "./pages/user/MapPage";
-import { OffersList } from "./pages/admin/OffersList";
-import { OfferForm } from "./pages/admin/OfferForm";
-import { UsersList } from "./pages/admin/UsersList";
-import { UserForm } from "./pages/admin/UserForm";
-import { AdminsList } from "./pages/admin/AdminsList";
-import { AdminForm } from "./pages/admin/AdminForm";
-import { SettingsPage } from "./pages/admin/SettingsPage";
-import { WrappedPage } from "./pages/user/WrappedPage";
+
+// Every delegate device loads the core feed/detail/activations pages on
+// login — those stay in the main bundle. The map (pulls in Leaflet) and
+// Wrapped (a once-a-year feature) are only visited by a fraction of
+// delegates per session, and the entire admin dashboard is never touched by
+// the vast majority of the ~2500 devices this app serves at once. Splitting
+// them out means a delegate's phone only downloads the admin bundle if an
+// account with admin access actually navigates there.
+const MapPage = lazy(() => import("./pages/user/MapPage").then((m) => ({ default: m.MapPage })));
+const WrappedPage = lazy(() => import("./pages/user/WrappedPage").then((m) => ({ default: m.WrappedPage })));
+const OffersList = lazy(() => import("./pages/admin/OffersList").then((m) => ({ default: m.OffersList })));
+const OfferForm = lazy(() => import("./pages/admin/OfferForm").then((m) => ({ default: m.OfferForm })));
+const UsersList = lazy(() => import("./pages/admin/UsersList").then((m) => ({ default: m.UsersList })));
+const UserForm = lazy(() => import("./pages/admin/UserForm").then((m) => ({ default: m.UserForm })));
+const AdminsList = lazy(() => import("./pages/admin/AdminsList").then((m) => ({ default: m.AdminsList })));
+const AdminForm = lazy(() => import("./pages/admin/AdminForm").then((m) => ({ default: m.AdminForm })));
+const SettingsPage = lazy(() => import("./pages/admin/SettingsPage").then((m) => ({ default: m.SettingsPage })));
+
+function PageFallback() {
+  return <div className="page-loading">Loading...</div>;
+}
 
 function RootRedirect() {
   const { user, loading } = useAuth();
@@ -46,10 +59,24 @@ export function App() {
         <Route element={<UserLayout />}>
           <Route path="/app/home" element={<HomeFeed />} />
           <Route path="/app/offers/:id" element={<OfferDetail />} />
-          <Route path="/app/map" element={<MapPage />} />
+          <Route
+            path="/app/map"
+            element={
+              <Suspense fallback={<PageFallback />}>
+                <MapPage />
+              </Suspense>
+            }
+          />
           <Route path="/app/activations" element={<MyActivations />} />
           <Route path="/app/account" element={<ChangePasswordPage embedded />} />
-          <Route path="/app/wrapped" element={<WrappedPage />} />
+          <Route
+            path="/app/wrapped"
+            element={
+              <Suspense fallback={<PageFallback />}>
+                <WrappedPage />
+              </Suspense>
+            }
+          />
         </Route>
       </Route>
 
@@ -68,14 +95,70 @@ export function App() {
             />
           }
         >
-          <Route path="/admin/offers" element={<OffersList />} />
-          <Route path="/admin/offers/new" element={<OfferForm />} />
-          <Route path="/admin/offers/:id/edit" element={<OfferForm />} />
-          <Route path="/admin/users" element={<UsersList />} />
-          <Route path="/admin/users/new" element={<UserForm />} />
-          <Route path="/admin/admins" element={<AdminsList />} />
-          <Route path="/admin/admins/new" element={<AdminForm />} />
-          <Route path="/admin/settings" element={<SettingsPage />} />
+          <Route
+            path="/admin/offers"
+            element={
+              <Suspense fallback={<PageFallback />}>
+                <OffersList />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/admin/offers/new"
+            element={
+              <Suspense fallback={<PageFallback />}>
+                <OfferForm />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/admin/offers/:id/edit"
+            element={
+              <Suspense fallback={<PageFallback />}>
+                <OfferForm />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/admin/users"
+            element={
+              <Suspense fallback={<PageFallback />}>
+                <UsersList />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/admin/users/new"
+            element={
+              <Suspense fallback={<PageFallback />}>
+                <UserForm />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/admin/admins"
+            element={
+              <Suspense fallback={<PageFallback />}>
+                <AdminsList />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/admin/admins/new"
+            element={
+              <Suspense fallback={<PageFallback />}>
+                <AdminForm />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/admin/settings"
+            element={
+              <Suspense fallback={<PageFallback />}>
+                <SettingsPage />
+              </Suspense>
+            }
+          />
           <Route path="/admin/account" element={<ChangePasswordPage />} />
         </Route>
       </Route>
