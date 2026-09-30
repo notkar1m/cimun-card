@@ -1,17 +1,18 @@
 import { prisma } from "../../lib/prisma";
-import { generateTempPassword, hashPassword } from "../../lib/password";
-import { sendTempPasswordEmail } from "../../lib/mailer";
+import { hashPassword } from "../../lib/password";
 import { ApiError } from "../../lib/ApiError";
 import { parseCsv } from "../../lib/csv";
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const LOGIN_ID_PATTERN = /^\d{4}$/;
 
-// "0" is the CSV convention for "leave this blank" — spreadsheet tools
-// often refuse to leave a cell truly empty when other rows in the column
-// have values, so this gives admins an explicit way to say "not provided."
-function isBlank(value: string | undefined): boolean {
-  const trimmed = (value ?? "").trim();
-  return trimmed === "" || trimmed === "0";
+// The temp password a delegate logs in with the first time: their name and
+// ID, squashed together lowercase with no spaces (e.g. "Karim Hany" + 9938
+// -> "karimhany9938") — easy to type on a phone, no shift key or spacebar
+// guessing. Deterministic on purpose — there's no email to deliver it
+// through, so the admin (and the delegate, who already knows both pieces)
+// can always reconstruct it without needing it stored or emailed anywhere.
+function tempPasswordFor(name: string, loginId: string): string {
+  return `${name.replace(/\s+/g, "").toLowerCase()}${loginId}`;
 }
 
 export async function listUsers() {
@@ -19,6 +20,7 @@ export async function listUsers() {
     where: { roles: { has: "USER" } },
     select: {
       id: true,
+      loginId: true,
       email: true,
       name: true,
       phone: true,
@@ -29,39 +31,27 @@ export async function listUsers() {
   });
 }
 
-export async function createUser(input: { email: string; name: string; phone: string }) {
-  const existing = await prisma.account.findUnique({ where: { email: input.email } });
+export async function createUser(input: { name: string; loginId: string }) {
+  const existing = await prisma.account.findUnique({ where: { loginId: input.loginId } });
   if (existing) {
-    throw new ApiError(409, "EMAIL_TAKEN", "An account with this email already exists");
+    throw new ApiError(409, "ID_TAKEN", "An account with this ID already exists");
   }
 
-  const tempPassword = generateTempPassword();
+  const tempPassword = tempPasswordFor(input.name, input.loginId);
   const passwordHash = await hashPassword(tempPassword);
 
   const account = await prisma.account.create({
     data: {
-      email: input.email,
+      loginId: input.loginId,
       name: input.name,
-      phone: input.phone,
       passwordHash,
       roles: ["USER"],
       mustChangePassword: true,
     },
-    select: { id: true, email: true, name: true, phone: true },
+    select: { id: true, loginId: true, name: true },
   });
 
-  try {
-    await sendTempPasswordEmail(account.email, tempPassword);
-  } catch (err) {
-    console.error("Failed to send temp password email:", err);
-    throw new ApiError(
-      502,
-      "EMAIL_FAILED",
-      "Account was created, but the welcome email could not be sent. Verify SMTP settings."
-    );
-  }
-
-  return account;
+  return { ...account, tempPassword };
 }
 
 export interface BulkImportUserRowError {
@@ -69,85 +59,83 @@ export interface BulkImportUserRowError {
   message: string;
 }
 
+export interface BulkImportUserRowResult {
+  row: number;
+  name: string;
+  loginId: string;
+  tempPassword: string;
+}
+
 export interface BulkImportUsersResult {
   created: number;
+  resolved: BulkImportUserRowResult[];
   errors: BulkImportUserRowError[];
 }
 
 // Mirrors the offers bulk-import: create as many rows as possible and
 // report the rest as per-row errors, rather than failing the whole file
-// over one bad row or one failed email.
+// over one bad row. Unlike that one, there's no email to send — every
+// created row's temp password comes back in the response, since that's
+// the only place an admin can see it.
 export async function bulkImportUsers(csvText: string): Promise<BulkImportUsersResult> {
   const rows = parseCsv(csvText);
   if (rows.length === 0) {
     throw new ApiError(400, "EMPTY_CSV", "The CSV file is empty");
   }
 
-  const firstCell = (rows[0]?.[0] ?? "").trim();
-  const hasHeader = !EMAIL_PATTERN.test(firstCell);
+  // A header row ("name,id" / "name,loginId" / ...) won't have a 4-digit
+  // second cell; a real data row always does.
+  const firstRowSecondCell = (rows[0]?.[1] ?? "").trim();
+  const hasHeader = !LOGIN_ID_PATTERN.test(firstRowSecondCell);
   const dataRows = hasHeader ? rows.slice(1) : rows;
 
   const errors: BulkImportUserRowError[] = [];
-  let created = 0;
+  const resolved: BulkImportUserRowResult[] = [];
   const seenInFile = new Set<string>();
 
   for (const [idx, cols] of dataRows.entries()) {
     const rowNumber = idx + (hasHeader ? 2 : 1);
-    const [emailRaw, nameRaw, phoneRaw] = cols;
-    const email = emailRaw?.trim() ?? "";
+    const [nameRaw, loginIdRaw] = cols;
+    const name = nameRaw?.trim() ?? "";
+    const loginId = loginIdRaw?.trim() ?? "";
 
-    if (!email) {
-      errors.push({ row: rowNumber, message: "Email is required" });
+    if (!name) {
+      errors.push({ row: rowNumber, message: "Name is required" });
       continue;
     }
-    if (!EMAIL_PATTERN.test(email)) {
-      errors.push({ row: rowNumber, message: `"${email}" doesn't look like a valid email` });
+    if (!LOGIN_ID_PATTERN.test(loginId)) {
+      errors.push({ row: rowNumber, message: `"${loginId}" isn't a 4-digit ID` });
       continue;
     }
-    if (seenInFile.has(email.toLowerCase())) {
-      errors.push({ row: rowNumber, message: `${email} appears more than once in this file` });
+    if (seenInFile.has(loginId)) {
+      errors.push({ row: rowNumber, message: `ID ${loginId} appears more than once in this file` });
       continue;
     }
-    seenInFile.add(email.toLowerCase());
+    seenInFile.add(loginId);
 
-    const existing = await prisma.account.findUnique({ where: { email } });
+    const existing = await prisma.account.findUnique({ where: { loginId } });
     if (existing) {
-      errors.push({ row: rowNumber, message: `An account with email ${email} already exists` });
+      errors.push({ row: rowNumber, message: `An account with ID ${loginId} already exists` });
       continue;
     }
 
-    // Blank name/phone are filled in by the delegate themselves on first
-    // login (see the mustChangePassword flow), not required up front.
-    const name = isBlank(nameRaw) ? "" : nameRaw!.trim();
-    const phone = isBlank(phoneRaw) ? null : phoneRaw!.trim();
-
-    const tempPassword = generateTempPassword();
+    const tempPassword = tempPasswordFor(name, loginId);
     const passwordHash = await hashPassword(tempPassword);
 
-    const account = await prisma.account.create({
+    await prisma.account.create({
       data: {
-        email,
+        loginId,
         name,
-        phone,
         passwordHash,
         roles: ["USER"],
         mustChangePassword: true,
       },
     });
 
-    try {
-      await sendTempPasswordEmail(account.email, tempPassword);
-      created++;
-    } catch (err) {
-      console.error("Failed to send temp password email:", err);
-      // The account exists, so don't count this as a failed row, but do
-      // let the admin know the delegate has no way to log in yet.
-      errors.push({ row: rowNumber, message: `${email} was created, but the welcome email failed to send` });
-      created++;
-    }
+    resolved.push({ row: rowNumber, name, loginId, tempPassword });
   }
 
-  return { created, errors };
+  return { created: resolved.length, resolved, errors };
 }
 
 export async function deleteUser(id: string) {
@@ -184,17 +172,17 @@ export async function deleteUser(id: string) {
 
 export async function updateUser(
   id: string,
-  input: { phone?: string; email?: string; name?: string }
+  input: { phone?: string; loginId?: string; name?: string }
 ) {
   const account = await prisma.account.findUnique({ where: { id } });
   if (!account || !account.roles.includes("USER")) {
     throw new ApiError(404, "NOT_FOUND", "User not found");
   }
 
-  if (input.email) {
-    const existing = await prisma.account.findUnique({ where: { email: input.email } });
+  if (input.loginId) {
+    const existing = await prisma.account.findUnique({ where: { loginId: input.loginId } });
     if (existing && existing.id !== id) {
-      throw new ApiError(409, "EMAIL_TAKEN", "An account with this email already exists");
+      throw new ApiError(409, "ID_TAKEN", "An account with this ID already exists");
     }
   }
 
@@ -202,9 +190,37 @@ export async function updateUser(
     where: { id },
     data: {
       ...(input.phone !== undefined ? { phone: input.phone } : {}),
-      ...(input.email ? { email: input.email } : {}),
+      ...(input.loginId ? { loginId: input.loginId } : {}),
       ...(input.name ? { name: input.name } : {}),
     },
-    select: { id: true, email: true, name: true, phone: true },
+    select: { id: true, loginId: true, name: true, phone: true },
   });
+}
+
+// The only self-service recovery an ID-based delegate has — there's no
+// email to send a reset link to, so an admin resets it back to the same
+// deterministic name+ID temp password and forces a change on next login,
+// same as a brand-new account.
+export async function resetUserPassword(id: string) {
+  const account = await prisma.account.findUnique({ where: { id } });
+  if (!account || !account.roles.includes("USER")) {
+    throw new ApiError(404, "NOT_FOUND", "User not found");
+  }
+  if (!account.loginId) {
+    throw new ApiError(
+      400,
+      "NO_LOGIN_ID",
+      "This account predates ID-based login and doesn't have an ID to reset a matching password for."
+    );
+  }
+
+  const tempPassword = tempPasswordFor(account.name, account.loginId);
+  const passwordHash = await hashPassword(tempPassword);
+
+  await prisma.account.update({
+    where: { id },
+    data: { passwordHash, mustChangePassword: true },
+  });
+
+  return { tempPassword };
 }

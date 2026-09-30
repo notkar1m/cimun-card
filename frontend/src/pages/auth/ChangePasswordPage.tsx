@@ -27,7 +27,6 @@ export function ChangePasswordPage({ embedded = false }: { embedded?: boolean } 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -35,11 +34,9 @@ export function ChangePasswordPage({ embedded = false }: { embedded?: boolean } 
     return <Navigate to="/" replace />;
   }
 
-  // Only ever true for a CSV-imported delegate on their forced first login
-  // — every other creation path (the New user/admin forms) already
-  // requires both fields up front.
+  // Defensive fallback for any legacy account that predates name being
+  // required at signup — every current creation path already requires it.
   const needsName = !user.name;
-  const needsPhone = !user.phone;
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -50,7 +47,6 @@ export function ChangePasswordPage({ embedded = false }: { embedded?: boolean } 
         currentPassword,
         newPassword,
         ...(needsName ? { name } : {}),
-        ...(needsPhone ? { phone } : {}),
       });
       await refresh();
       navigate(homeFor(user!));
@@ -65,12 +61,6 @@ export function ChangePasswordPage({ embedded = false }: { embedded?: boolean } 
     <>
       {error && <Alert type="error">{error}</Alert>}
       <form onSubmit={handleSubmit}>
-        {(needsName || needsPhone) && (
-          <p className="muted" style={{ marginTop: -4 }}>
-            A couple of details weren't on file for you yet &mdash; fill them in to finish setting up
-            your account.
-          </p>
-        )}
         {needsName && (
           <TextInput
             id="name"
@@ -78,15 +68,6 @@ export function ChangePasswordPage({ embedded = false }: { embedded?: boolean } 
             required
             value={name}
             onChange={(e) => setName(e.target.value)}
-          />
-        )}
-        {needsPhone && (
-          <TextInput
-            id="phone"
-            label="Phone number"
-            required
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
           />
         )}
         <TextInput
@@ -124,7 +105,7 @@ export function ChangePasswordPage({ embedded = false }: { embedded?: boolean } 
           <span className="account-avatar">{initials(user.name)}</span>
           <div className="account-profile-info">
             <p className="account-profile-name">{user.name}</p>
-            <p className="account-profile-email">{user.email}</p>
+            <p className="account-profile-email">{user.email ?? `ID: ${user.loginId}`}</p>
           </div>
         </div>
 

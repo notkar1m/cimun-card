@@ -36,7 +36,14 @@ enum VendorTier {
 
 model Account {
   id                   String    @id @default(uuid())
-  email                String    @unique
+  // Admins always have one (used for login, password reset, and receiving
+  // mail). Delegates created through the ID-based flow don't have one at
+  // all — nullable, and Postgres allows multiple NULLs under @unique, so
+  // that's fine.
+  email                String?   @unique
+  // Delegate login identifier: a 4-digit code the admin assigns at signup.
+  // Null for admins and for any delegate created before this existed.
+  loginId              String?   @unique
   name                 String
   passwordHash         String
   roles                Role[]

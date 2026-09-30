@@ -7,18 +7,24 @@ import { Alert, Button, Spinner } from "../../components/ui";
 import { CsvImportModal, type CsvColumn } from "../../components/CsvImportModal";
 
 const USER_CSV_COLUMNS: CsvColumn[] = [
-  { name: "email", note: "required" },
-  { name: "name", note: "optional — leave blank or use 0; they'll set it on first login" },
-  { name: "phone", note: "optional — leave blank or use 0; they'll set it on first login" },
+  { name: "name", note: "required" },
+  { name: "id", note: "required — 4 digits, e.g. 4821" },
 ];
 
 interface User {
   id: string;
-  email: string;
+  email: string | null;
+  loginId: string | null;
   name: string;
   phone: string | null;
   mustChangePassword: boolean;
   createdAt: string;
+}
+
+interface BulkImportUsersResult {
+  created: number;
+  resolved: { row: number; name: string; loginId: string; tempPassword: string }[];
+  errors: { row: number; message: string }[];
 }
 
 export function UsersList() {
@@ -29,10 +35,12 @@ export function UsersList() {
   });
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [resettingId, setResettingId] = useState<string | null>(null);
+  const [resetResult, setResetResult] = useState<{ name: string; tempPassword: string } | null>(null);
   const [showCsvModal, setShowCsvModal] = useState(false);
 
   async function handleDelete(user: User) {
-    if (!confirm(`Delete the account for ${user.name} (${user.email})? This can't be undone.`)) return;
+    if (!confirm(`Delete the account for ${user.name}? This can't be undone.`)) return;
     setError(null);
     setDeletingId(user.id);
     try {
@@ -42,6 +50,22 @@ export function UsersList() {
       setError(isApiError(err) ? err.message : "Something went wrong");
     } finally {
       setDeletingId(null);
+    }
+  }
+
+  async function handleResetPassword(user: User) {
+    if (!confirm(`Reset the password for ${user.name}? They'll need to set a new one on next login.`)) return;
+    setError(null);
+    setResetResult(null);
+    setResettingId(user.id);
+    try {
+      const res = await api.post<{ tempPassword: string }>(`/admin/users/${user.id}/reset-password`);
+      setResetResult({ name: user.name, tempPassword: res.tempPassword });
+      queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
+    } catch (err) {
+      setError(isApiError(err) ? err.message : "Something went wrong");
+    } finally {
+      setResettingId(null);
     }
   }
 
@@ -60,17 +84,56 @@ export function UsersList() {
       </div>
 
       {showCsvModal && (
-        <CsvImportModal
+        <CsvImportModal<BulkImportUsersResult>
           title="Upload users from CSV"
           endpoint="/admin/users/bulk-import"
           columns={USER_CSV_COLUMNS}
           resultNoun="user"
           onClose={() => setShowCsvModal(false)}
           onImported={() => queryClient.invalidateQueries({ queryKey: ["admin", "users"] })}
+          renderExtra={(result) =>
+            result.resolved.length > 0 ? (
+              <div style={{ marginTop: 12 }}>
+                <p className="muted" style={{ marginBottom: 6 }}>
+                  There's no email to send these to — write them down now.
+                </p>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>ID</th>
+                      <th>Temp password</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {result.resolved.map((r) => (
+                      <tr key={r.loginId}>
+                        <td>{r.name}</td>
+                        <td>
+                          <code>{r.loginId}</code>
+                        </td>
+                        <td>
+                          <code>{r.tempPassword}</code>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : null
+          }
         />
       )}
 
       {error && <Alert type="error">{error}</Alert>}
+
+      {resetResult && (
+        <Alert type="success">
+          {resetResult.name}'s new temporary password is <code>{resetResult.tempPassword}</code> —
+          there's no email to send it to, write it down now.
+        </Alert>
+      )}
+
       {isLoading ? (
         <Spinner />
       ) : (data?.users ?? []).length === 0 ? (
@@ -84,8 +147,7 @@ export function UsersList() {
           <thead>
             <tr>
               <th>Name</th>
-              <th>Email</th>
-              <th>Phone</th>
+              <th>ID / Email</th>
               <th>Status</th>
               <th>Created</th>
               <th />
@@ -97,8 +159,7 @@ export function UsersList() {
                 <td style={{ fontWeight: 600 }}>
                   {u.name || <span className="muted">Not set yet</span>}
                 </td>
-                <td>{u.email}</td>
-                <td>{u.phone || <span className="muted">&mdash;</span>}</td>
+                <td>{u.loginId ?? u.email ?? <span className="muted">&mdash;</span>}</td>
                 <td>
                   <span className={`badge ${u.mustChangePassword ? "badge-warning" : "badge-success"}`}>
                     {u.mustChangePassword ? "Awaiting first login" : "Active"}
@@ -106,14 +167,26 @@ export function UsersList() {
                 </td>
                 <td>{new Date(u.createdAt).toLocaleDateString()}</td>
                 <td>
-                  <Button
-                    type="button"
-                    variant="danger"
-                    onClick={() => handleDelete(u)}
-                    disabled={deletingId === u.id}
-                  >
-                    {deletingId === u.id ? "Deleting..." : "Delete"}
-                  </Button>
+                  <div className="row">
+                    {u.loginId && (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => handleResetPassword(u)}
+                        disabled={resettingId === u.id}
+                      >
+                        {resettingId === u.id ? "Resetting..." : "Reset password"}
+                      </Button>
+                    )}
+                    <Button
+                      type="button"
+                      variant="danger"
+                      onClick={() => handleDelete(u)}
+                      disabled={deletingId === u.id}
+                    >
+                      {deletingId === u.id ? "Deleting..." : "Delete"}
+                    </Button>
+                  </div>
                 </td>
               </tr>
             ))}

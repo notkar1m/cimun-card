@@ -30,10 +30,11 @@ router.post(
   })
 );
 
+const LOGIN_ID_SCHEMA = z.string().regex(/^\d{4}$/, "Must be exactly 4 digits");
+
 const createUserSchema = z.object({
-  email: z.string().email(),
   name: z.string().min(1),
-  phone: z.string().min(1),
+  loginId: LOGIN_ID_SCHEMA,
 });
 
 router.post(
@@ -47,7 +48,7 @@ router.post(
 
 const updateUserSchema = z.object({
   phone: z.string().min(1).optional(),
-  email: z.string().email().optional(),
+  loginId: LOGIN_ID_SCHEMA.optional(),
   name: z.string().min(1).optional(),
 });
 
@@ -57,6 +58,14 @@ router.patch(
     const input = updateUserSchema.parse(req.body);
     const user = await usersService.updateUser(req.params.id, input);
     res.json({ user });
+  })
+);
+
+router.post(
+  "/:id/reset-password",
+  asyncHandler(async (req, res) => {
+    const result = await usersService.resetUserPassword(req.params.id);
+    res.json(result);
   })
 );
 

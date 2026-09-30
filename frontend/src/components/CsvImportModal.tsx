@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { api } from "../api/client";
 import { isApiError } from "../auth/AuthContext";
 import { Alert, Button, Modal } from "./ui";
@@ -13,21 +13,32 @@ export interface CsvColumn {
   note: string;
 }
 
-interface CsvImportModalProps {
+interface CsvImportModalProps<T extends BulkImportResult> {
   title: string;
   endpoint: string;
   columns: CsvColumn[];
   resultNoun: string;
   onClose: () => void;
   onImported: () => void;
+  // Extra content rendered below the summary — e.g. a table of per-row
+  // detail the API returned that a plain "X created" count can't show.
+  renderExtra?: (result: T) => ReactNode;
 }
 
-export function CsvImportModal({ title, endpoint, columns, resultNoun, onClose, onImported }: CsvImportModalProps) {
+export function CsvImportModal<T extends BulkImportResult = BulkImportResult>({
+  title,
+  endpoint,
+  columns,
+  resultNoun,
+  onClose,
+  onImported,
+  renderExtra,
+}: CsvImportModalProps<T>) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<BulkImportResult | null>(null);
+  const [result, setResult] = useState<T | null>(null);
 
   async function handleFile(file: File) {
     setFileName(file.name);
@@ -36,7 +47,7 @@ export function CsvImportModal({ title, endpoint, columns, resultNoun, onClose, 
     setUploading(true);
     try {
       const csv = await file.text();
-      const res = await api.post<BulkImportResult>(endpoint, { csv });
+      const res = await api.post<T>(endpoint, { csv });
       setResult(res);
       if (res.created > 0) {
         onImported();
@@ -84,6 +95,8 @@ export function CsvImportModal({ title, endpoint, columns, resultNoun, onClose, 
           {result.errors.length > 0 ? `, ${result.errors.length} row${result.errors.length === 1 ? "" : "s"} had a problem (see below).` : "."}
         </Alert>
       )}
+
+      {result && renderExtra?.(result)}
 
       {result && result.errors.length > 0 && (
         <ul className="csv-import-errors">

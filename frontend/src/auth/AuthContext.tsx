@@ -5,7 +5,8 @@ export type Role = "SUPERADMIN" | "USER";
 
 export interface AuthUser {
   id: string;
-  email: string;
+  email: string | null;
+  loginId: string | null;
   name: string;
   phone: string | null;
   roles: Role[];
@@ -16,7 +17,8 @@ export interface AuthUser {
 interface AuthContextValue {
   user: AuthUser | null;
   loading: boolean;
-  login: (email: string, password: string, expectedRole: Role) => Promise<AuthUser>;
+  // Admins send their email here; delegates send their 4-digit ID.
+  login: (identifier: string, password: string, expectedRole: Role) => Promise<AuthUser>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
 }
@@ -40,9 +42,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refresh().finally(() => setLoading(false));
   }, [refresh]);
 
-  const login = useCallback(async (email: string, password: string, expectedRole: Role) => {
+  const login = useCallback(async (identifier: string, password: string, expectedRole: Role) => {
     const { user } = await api.post<{ user: AuthUser }>("/auth/login", {
-      email,
+      identifier,
       password,
       expectedRole,
     });

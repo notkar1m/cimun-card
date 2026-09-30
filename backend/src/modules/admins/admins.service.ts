@@ -22,7 +22,7 @@ export async function listAdmins() {
 }
 
 export interface CreateAdminResult {
-  account: { id: string; email: string; name: string; roles: Role[]; isOwner: boolean };
+  account: { id: string; email: string | null; name: string; roles: Role[]; isOwner: boolean };
   // true when this added the SUPERADMIN role to an existing delegate
   // account rather than creating a brand new one.
   upgradedExisting: boolean;
@@ -66,7 +66,10 @@ export async function createAdmin(input: {
   });
 
   try {
-    await sendTempPasswordEmail(account.email, tempPassword);
+    // input.email, not account.email: admins always have one (required at
+    // creation), but Prisma's Account type reflects the column being
+    // nullable for delegates, so this is the non-null value we already have.
+    await sendTempPasswordEmail(input.email, tempPassword);
   } catch (err) {
     console.error("Failed to send temp password email:", err);
     throw new ApiError(

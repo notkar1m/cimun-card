@@ -38,7 +38,8 @@ function setAuthCookie(res: import("express").Response, token: string) {
 
 function serializeAccount(account: {
   id: string;
-  email: string;
+  email: string | null;
+  loginId: string | null;
   name: string;
   phone: string | null;
   roles: string[];
@@ -48,6 +49,7 @@ function serializeAccount(account: {
   return {
     id: account.id,
     email: account.email,
+    loginId: account.loginId,
     name: account.name,
     phone: account.phone,
     roles: account.roles,
@@ -57,7 +59,9 @@ function serializeAccount(account: {
 }
 
 const loginSchema = z.object({
-  email: z.string().email(),
+  // Admins send their email here; delegates send their 4-digit ID. One
+  // field, since the service layer already looks up either.
+  identifier: z.string().min(1),
   password: z.string().min(1),
   expectedRole: z.enum(["SUPERADMIN", "USER"]).optional(),
 });
@@ -66,8 +70,8 @@ router.post(
   "/login",
   loginLimiter,
   asyncHandler(async (req, res) => {
-    const { email, password, expectedRole } = loginSchema.parse(req.body);
-    const account = await authService.login(email, password, expectedRole);
+    const { identifier, password, expectedRole } = loginSchema.parse(req.body);
+    const account = await authService.login(identifier, password, expectedRole);
 
     const token = signAuthToken({ sub: account.id, roles: account.roles, isOwner: account.isOwner });
     setAuthCookie(res, token);
@@ -94,15 +98,14 @@ const changePasswordSchema = z.object({
   currentPassword: z.string().min(1),
   newPassword: z.string().min(8),
   name: z.string().trim().min(1).max(100).optional(),
-  phone: z.string().trim().min(1).max(30).optional(),
 });
 
 router.post(
   "/change-password",
   requireAuth,
   asyncHandler(async (req, res) => {
-    const { currentPassword, newPassword, name, phone } = changePasswordSchema.parse(req.body);
-    await authService.changePassword(req.user!.id, currentPassword, newPassword, { name, phone });
+    const { currentPassword, newPassword, name } = changePasswordSchema.parse(req.body);
+    await authService.changePassword(req.user!.id, currentPassword, newPassword, { name });
     res.status(204).send();
   })
 );

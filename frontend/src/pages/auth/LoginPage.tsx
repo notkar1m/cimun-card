@@ -17,7 +17,7 @@ const ROLE_HOME: Record<Role, string> = {
 export function LoginPage({ role }: { role: Role }) {
   const { login } = useAuth();
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -27,7 +27,7 @@ export function LoginPage({ role }: { role: Role }) {
     setError(null);
     setSubmitting(true);
     try {
-      const user = await login(email, password, role);
+      const user = await login(identifier, password, role);
       navigate(user.mustChangePassword ? "/change-password" : ROLE_HOME[role]);
     } catch (err) {
       setError(isApiError(err) ? err.message : "Something went wrong");
@@ -40,15 +40,31 @@ export function LoginPage({ role }: { role: Role }) {
     <>
       {error && <Alert type="error">{error}</Alert>}
       <form onSubmit={handleSubmit}>
-        <TextInput
-          id="email"
-          label="Email"
-          type="email"
-          autoComplete="username"
-          required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
+        {role === "USER" ? (
+          <TextInput
+            id="identifier"
+            label="ID"
+            type="text"
+            inputMode="numeric"
+            pattern="\d{4}"
+            maxLength={4}
+            autoComplete="username"
+            placeholder="4-digit ID"
+            required
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
+          />
+        ) : (
+          <TextInput
+            id="identifier"
+            label="Email"
+            type="email"
+            autoComplete="username"
+            required
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
+          />
+        )}
         <TextInput
           id="password"
           label="Password"
@@ -62,9 +78,13 @@ export function LoginPage({ role }: { role: Role }) {
           {submitting ? "Logging in..." : "Log in"}
         </Button>
       </form>
-      <p className="muted" style={{ marginTop: 16 }}>
-        <Link to="/forgot-password">Forgot your password?</Link>
-      </p>
+      {/* Delegates have no email on file to send a reset link to — an admin
+          resets their password from the Users page instead. */}
+      {role === "SUPERADMIN" && (
+        <p className="muted" style={{ marginTop: 16 }}>
+          <Link to="/forgot-password">Forgot your password?</Link>
+        </p>
+      )}
     </>
   );
 

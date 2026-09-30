@@ -6,18 +6,24 @@ import { sendPasswordResetEmail } from "../../lib/mailer";
 import { env } from "../../config/env";
 import { ApiError } from "../../lib/ApiError";
 
-export async function login(email: string, password: string, expectedRole?: Role) {
-  const account = await prisma.account.findUnique({ where: { email } });
+// Admins log in with email; delegates log in with their 4-digit ID.
+// Accepting either through one field keeps this working for delegate
+// accounts created before the ID scheme existed (they still have an
+// email and no loginId).
+export async function login(identifier: string, password: string, expectedRole?: Role) {
+  const account = await prisma.account.findFirst({
+    where: { OR: [{ email: identifier }, { loginId: identifier }] },
+  });
 
   if (!account) {
     // still run a hash comparison to keep response timing consistent
     await verifyPassword(password, "$2a$12$invalidinvalidinvalidinvalidinvalidinvalidinvalidinva");
-    throw new ApiError(401, "INVALID_CREDENTIALS", "Invalid email or password");
+    throw new ApiError(401, "INVALID_CREDENTIALS", "Invalid login or password");
   }
 
   const valid = await verifyPassword(password, account.passwordHash);
   if (!valid) {
-    throw new ApiError(401, "INVALID_CREDENTIALS", "Invalid email or password");
+    throw new ApiError(401, "INVALID_CREDENTIALS", "Invalid login or password");
   }
 
   if (expectedRole && !account.roles.includes(expectedRole)) {
@@ -43,7 +49,7 @@ export async function changePassword(
   accountId: string,
   currentPassword: string,
   newPassword: string,
-  profile?: { name?: string; phone?: string }
+  profile?: { name?: string }
 ) {
   const account = await getAccountById(accountId);
 
@@ -52,18 +58,12 @@ export async function changePassword(
     throw new ApiError(401, "INVALID_CREDENTIALS", "Current password is incorrect");
   }
 
-  // A CSV-imported delegate can have a blank name/phone (filled in by an
-  // admin who didn't have it yet); collect it here, on the one screen we
-  // know they can't get past without completing. Enforced server-side too,
-  // not just as a frontend nicety — this is required, not optional, once an
-  // account is missing either field.
+  // Defensive fallback for any legacy account that predates name being a
+  // required field at signup — not a path any current creation flow leaves
+  // an account in.
   const name = profile?.name?.trim();
-  const phone = profile?.phone?.trim();
   if (!account.name && !name) {
     throw new ApiError(400, "NAME_REQUIRED", "Your name is required");
-  }
-  if (!account.phone && !phone) {
-    throw new ApiError(400, "PHONE_REQUIRED", "Your phone number is required");
   }
 
   const passwordHash = await hashPassword(newPassword);
@@ -74,7 +74,6 @@ export async function changePassword(
       passwordHash,
       mustChangePassword: false,
       ...(name ? { name } : {}),
-      ...(phone ? { phone } : {}),
     },
   });
 }
@@ -82,7 +81,11 @@ export async function changePassword(
 export async function requestPasswordReset(email: string) {
   const account = await prisma.account.findUnique({ where: { email } });
 
-  // Always behave the same whether or not the account exists, to avoid account enumeration.
+  // Always behave the same whether or not the account exists, to avoid
+  // account enumeration. An ID-based delegate (no email on file) can't be
+  // found by this lookup at all, so they fall into the same no-op — which
+  // is correct, since there's nowhere to send a reset link. They (or their
+  // admin) use the Reset password action on the Users page instead.
   if (!account) {
     return;
   }
@@ -96,7 +99,9 @@ export async function requestPasswordReset(email: string) {
 
   const resetUrl = `${env.APP_URL}/reset-password?token=${token}`;
   try {
-    await sendPasswordResetEmail(account.email, resetUrl);
+    // Guaranteed non-null: this account was only found via findUnique on a
+    // literal email string, which can never match a NULL column.
+    await sendPasswordResetEmail(account.email!, resetUrl);
   } catch (err) {
     // Don't let a mail delivery failure leak whether the account exists via a differing response.
     console.error("Failed to send password reset email:", err);
@@ -120,12 +125,11 @@ export async function resetPassword(token: string, newPassword: string) {
     where: { id: account.id },
     data: {
       passwordHash,
-      // A CSV-imported delegate with a blank name/phone still needs to
-      // provide them — that only happens on the forced ChangePasswordPage
-      // stop, so resetting the password alone can't be the thing that lets
-      // this requirement slip through. If the profile's already complete,
-      // this clears normally and they go straight to the app next login.
-      mustChangePassword: !account.name || !account.phone,
+      // A legacy account with a blank name still needs to provide one —
+      // that only happens on the forced ChangePasswordPage stop, so
+      // resetting the password alone can't be the thing that lets this
+      // requirement slip through.
+      mustChangePassword: !account.name,
       resetTokenHash: null,
       resetTokenExpiresAt: null,
     },
