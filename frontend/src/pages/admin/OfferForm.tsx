@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../../api/client";
 import { isApiError } from "../../auth/AuthContext";
@@ -18,6 +18,7 @@ interface OfferDetail {
   tier: Tier;
   discountPercent: number | null;
   imageUrl: string | null;
+  websiteUrl: string | null;
   active: boolean;
   redemptionType: RedemptionType;
   promoCode: string | null;
@@ -30,6 +31,7 @@ export function OfferForm() {
   const { id } = useParams<{ id: string }>();
   const isEdit = !!id;
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const { data: offersData } = useQuery({
     queryKey: ["admin", "offers"],
@@ -47,11 +49,13 @@ export function OfferForm() {
   const [tier, setTier] = useState<Tier>("GOLD");
   const [discountPercent, setDiscountPercent] = useState("");
   const [imageUrl, setImageUrl] = useState("");
+  const [websiteUrl, setWebsiteUrl] = useState("");
   const [active, setActive] = useState(true);
   const [redemptionType, setRedemptionType] = useState<RedemptionType>("CARD");
   const [promoCode, setPromoCode] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [branches, setBranches] = useState<BranchDraft[]>([]);
+  const [branchesResolving, setBranchesResolving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -65,6 +69,7 @@ export function OfferForm() {
         setTier(offer.tier);
         setDiscountPercent(offer.discountPercent != null ? String(offer.discountPercent) : "");
         setImageUrl(offer.imageUrl ?? "");
+        setWebsiteUrl(offer.websiteUrl ?? "");
         setActive(offer.active);
         setRedemptionType(offer.redemptionType);
         setPromoCode(offer.promoCode ?? "");
@@ -84,6 +89,11 @@ export function OfferForm() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+
+    if (branchesResolving) {
+      setError("Still locating a branch address — wait a second for it to finish, then save.");
+      return;
+    }
 
     const branchPayload: { label: string; lat: number; lng: number }[] = [];
     for (let i = 0; i < branches.length; i++) {
@@ -112,6 +122,7 @@ export function OfferForm() {
       tier,
       discountPercent: trimmedDiscount === "" ? (isEdit ? null : undefined) : Number(trimmedDiscount),
       imageUrl: imageUrl || undefined,
+      websiteUrl: websiteUrl || undefined,
       active,
       redemptionType,
       promoCode: redemptionType === "PROMO" ? promoCode : undefined,
@@ -124,6 +135,7 @@ export function OfferForm() {
       } else {
         await api.post("/admin/offers", payload);
       }
+      queryClient.invalidateQueries({ queryKey: ["admin", "offers"] });
       navigate("/admin/offers");
     } catch (err) {
       setError(isApiError(err) ? err.message : "Something went wrong");
@@ -143,6 +155,7 @@ export function OfferForm() {
     setError(null);
     try {
       await api.delete(`/admin/offers/${id}`);
+      queryClient.invalidateQueries({ queryKey: ["admin", "offers"] });
       navigate("/admin/offers");
     } catch (err) {
       setError(isApiError(err) ? err.message : "Something went wrong");
@@ -201,13 +214,20 @@ export function OfferForm() {
 
         <TagInput value={tags} onChange={setTags} suggestions={tagSuggestions} />
 
-        <BranchEditor value={branches} onChange={setBranches} />
+        <BranchEditor value={branches} onChange={setBranches} onResolvingChange={setBranchesResolving} />
 
         <TextInput
           id="imageUrl"
           label="Image URL (optional)"
           value={imageUrl}
           onChange={(e) => setImageUrl(e.target.value)}
+        />
+        <TextInput
+          id="websiteUrl"
+          label="Vendor website (optional)"
+          placeholder="https://..."
+          value={websiteUrl}
+          onChange={(e) => setWebsiteUrl(e.target.value)}
         />
         <div className="field">
           <label htmlFor="redemptionType">Redemption type</label>
@@ -241,8 +261,8 @@ export function OfferForm() {
           </label>
         </div>
         <div className="row">
-          <Button type="submit" disabled={submitting || !vendorName}>
-            {submitting ? "Saving..." : "Save"}
+          <Button type="submit" disabled={submitting || !vendorName || branchesResolving}>
+            {submitting ? "Saving..." : branchesResolving ? "Locating branch..." : "Save"}
           </Button>
           {isEdit && (
             <Button type="button" variant="danger" onClick={handleDelete}>

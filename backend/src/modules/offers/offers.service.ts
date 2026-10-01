@@ -10,6 +10,7 @@ const publicOfferSelect = {
   description: true,
   discountPercent: true,
   imageUrl: true,
+  websiteUrl: true,
   active: true,
   tags: true,
   vendorName: true,
@@ -164,6 +165,7 @@ export async function adminCreateOffer(input: {
   tier?: VendorTier;
   discountPercent?: number;
   imageUrl?: string;
+  websiteUrl?: string;
   active?: boolean;
   redemptionType?: RedemptionType;
   promoCode?: string;
@@ -183,6 +185,7 @@ export async function adminCreateOffer(input: {
       sortOrder: await nextSortOrderForTier(tier),
       discountPercent: input.discountPercent ?? null,
       imageUrl: input.imageUrl,
+      websiteUrl: input.websiteUrl,
       active: input.active ?? true,
       redemptionType,
       promoCode: redemptionType === "PROMO" ? input.promoCode : null,
@@ -202,6 +205,7 @@ export async function adminUpdateOffer(
     tier?: VendorTier;
     discountPercent?: number | null;
     imageUrl?: string;
+    websiteUrl?: string;
     active?: boolean;
     redemptionType?: RedemptionType;
     promoCode?: string;

@@ -28,16 +28,12 @@ export function LoginPage({ role }: { role: Role }) {
     setSubmitting(true);
     try {
       const user = await login(identifier, password, role);
-      // A sub-admin (a 4-digit-code user who's also been granted admin
-      // access) logs in through this same page with their ID — send them
-      // to the admin dashboard regardless of which login page they used,
-      // same as the root redirect does for a returning session.
-      const destination = user.mustChangePassword
-        ? "/change-password"
-        : user.roles.includes("SUPERADMIN")
-          ? ROLE_HOME.SUPERADMIN
-          : ROLE_HOME[role];
-      navigate(destination);
+      // Which page they logged in through decides where they land, even
+      // for a dual-role (sub-admin) account — the member page always goes
+      // to the delegate app, the admin page always goes to the dashboard.
+      // They can cross over afterward via "/admin", "/", or the sidebar's
+      // "Switch to delegate view" link.
+      navigate(user.mustChangePassword ? "/change-password" : ROLE_HOME[role]);
     } catch (err) {
       setError(isApiError(err) ? err.message : "Something went wrong");
     } finally {

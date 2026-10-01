@@ -36,17 +36,31 @@ function RootRedirect() {
   const { user, loading } = useAuth();
   if (loading) return <div className="page-loading">Loading...</div>;
   if (user) {
-    // A dual-role account (admin + delegate) lands in the admin dashboard
-    // by default; they can still get to the delegate app at /app/home.
-    return <Navigate to={user.roles.includes("SUPERADMIN") ? "/admin/offers" : "/app/home"} replace />;
+    // "/" is the general entry point: a dual-role account lands in the
+    // delegate app here, same as a plain delegate. Admin access is reached
+    // deliberately at /admin instead (see AdminRedirect below) — a
+    // sub-admin's day-to-day visits to "/" shouldn't dump them in the
+    // dashboard. An admin-only account (no USER role) has nowhere else to
+    // go, so it still falls back to the dashboard.
+    return <Navigate to={user.roles.includes("USER") ? "/app/home" : "/admin/offers"} replace />;
   }
   return <Navigate to="/login/user" replace />;
+}
+
+function AdminRedirect() {
+  const { user, loading } = useAuth();
+  if (loading) return <div className="page-loading">Loading...</div>;
+  if (user) {
+    return <Navigate to={user.roles.includes("SUPERADMIN") ? "/admin/offers" : "/app/home"} replace />;
+  }
+  return <Navigate to="/login/admin" replace />;
 }
 
 export function App() {
   return (
     <Routes>
       <Route path="/" element={<RootRedirect />} />
+      <Route path="/admin" element={<AdminRedirect />} />
       <Route path="/login/user" element={<LoginPage role="USER" />} />
       <Route path="/login/admin" element={<LoginPage role="SUPERADMIN" />} />
       <Route path="/change-password" element={<ChangePasswordPage />} />

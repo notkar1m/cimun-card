@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { isApiError } from "../../auth/AuthContext";
 import { Alert, Button, TextInput } from "../../components/ui";
@@ -11,6 +12,7 @@ interface CreatedUser {
 }
 
 export function UserForm() {
+  const queryClient = useQueryClient();
   const [name, setName] = useState("");
   const [loginId, setLoginId] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -23,6 +25,7 @@ export function UserForm() {
     setSubmitting(true);
     try {
       const { user } = await api.post<{ user: CreatedUser }>("/admin/users", { name, loginId });
+      queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
       setCreated(user);
     } catch (err) {
       setError(isApiError(err) ? err.message : "Something went wrong");

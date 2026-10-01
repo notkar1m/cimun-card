@@ -19,10 +19,12 @@ function BranchRow({
   branch,
   onChange,
   onRemove,
+  onResolvingChange,
 }: {
   branch: BranchDraft;
   onChange: (branch: BranchDraft) => void;
   onRemove: () => void;
+  onResolvingChange: (resolving: boolean) => void;
 }) {
   const [resolving, setResolving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,6 +36,7 @@ function BranchRow({
     if (!trimmed) return;
 
     setResolving(true);
+    onResolvingChange(true);
     try {
       const coords = await api.post<{ lat: number; lng: number }>("/admin/offers/maps/resolve", {
         input: trimmed,
@@ -47,6 +50,7 @@ function BranchRow({
       );
     } finally {
       setResolving(false);
+      onResolvingChange(false);
     }
   }
 
@@ -85,14 +89,25 @@ function BranchRow({
 export function BranchEditor({
   value,
   onChange,
+  onResolvingChange,
 }: {
   value: BranchDraft[];
   onChange: (value: BranchDraft[]) => void;
+  // Lets the form know a branch's location lookup is still in flight, so it
+  // can hold off on submitting rather than reading a stale lat/lng that's
+  // about to be filled in a moment later.
+  onResolvingChange?: (resolving: boolean) => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const resolvingCountRef = useRef(0);
   const [csvUploading, setCsvUploading] = useState(false);
   const [csvSummary, setCsvSummary] = useState<{ added: number; skippedRows: number[] } | null>(null);
   const [csvError, setCsvError] = useState<string | null>(null);
+
+  function handleRowResolvingChange(isResolving: boolean) {
+    resolvingCountRef.current += isResolving ? 1 : -1;
+    onResolvingChange?.(resolvingCountRef.current > 0);
+  }
 
   function updateBranch(index: number, branch: BranchDraft) {
     onChange(value.map((b, i) => (i === index ? branch : b)));
@@ -147,6 +162,7 @@ export function BranchEditor({
               branch={branch}
               onChange={(b) => updateBranch(i, b)}
               onRemove={() => removeBranch(i)}
+              onResolvingChange={handleRowResolvingChange}
             />
           ))}
         </div>

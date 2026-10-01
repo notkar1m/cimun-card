@@ -13,6 +13,7 @@ interface Offer {
   title: string;
   description: string;
   imageUrl: string | null;
+  websiteUrl: string | null;
   tags: string[];
   vendorName: string;
   tier: "SILVER" | "GOLD" | "DIAMOND";
@@ -146,6 +147,16 @@ export function OfferDetail() {
         </div>
       )}
       <p className="user-detail-body">{offer.description}</p>
+      {offer.websiteUrl && (
+        <a
+          href={offer.websiteUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="user-detail-website"
+        >
+          Visit website &#8599;
+        </a>
+      )}
 
       {error && <Alert type="error">{error}</Alert>}
 

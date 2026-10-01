@@ -70,6 +70,7 @@ model Offer {
   description    String
   discountPercent Int?
   imageUrl       String?
+  websiteUrl     String?
   active         Boolean        @default(true)
   redemptionType RedemptionType @default(CARD)
   promoCode      String?

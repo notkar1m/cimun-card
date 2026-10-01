@@ -264,6 +264,7 @@ p {
   border: none;
   background: transparent;
   color: var(--sidebar-text-muted);
+  text-decoration: none;
   font-size: 14px;
   font-weight: 600;
   text-align: left;
@@ -1858,6 +1859,14 @@ tbody tr:hover {
   line-height: 1.6;
   color: var(--color-text);
   max-width: 65ch;
+}
+
+.user-detail-website {
+  display: inline-block;
+  margin-top: 14px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-primary);
 }
 
 .user-cta-bar {

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 
 interface LayoutLink {
@@ -29,6 +29,17 @@ function BrandMarkIcon() {
       <rect x="3" y="6" width="18" height="13" rx="2.5" />
       <path d="M3 10.5h18" />
       <path d="M7 14.5h4" />
+    </svg>
+  );
+}
+
+function SwitchIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M8 3 4 7l4 4" />
+      <path d="M4 7h11a5 5 0 0 1 5 5v1" />
+      <path d="M16 21l4-4-4-4" />
+      <path d="M20 17H9a5 5 0 0 1-5-5v-1" />
     </svg>
   );
 }
@@ -66,7 +77,13 @@ export function Layout({ title, links }: LayoutProps) {
         </nav>
 
         <div className="dashboard-sidebar-footer">
-          <span className="dashboard-account-email">{user?.email}</span>
+          <span className="dashboard-account-email">{user?.email ?? user?.loginId}</span>
+          {user?.roles.includes("USER") && (
+            <Link to="/app/home" className="dashboard-logout">
+              <SwitchIcon />
+              <span>Switch to delegate view</span>
+            </Link>
+          )}
           <button type="button" className="dashboard-logout" onClick={handleLogout}>
             <LogoutIcon />
             <span>Log out</span>

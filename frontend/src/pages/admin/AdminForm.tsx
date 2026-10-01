@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { isApiError, useAuth } from "../../auth/AuthContext";
 import { Alert, Button, TextInput } from "../../components/ui";
@@ -7,6 +8,7 @@ import { Alert, Button, TextInput } from "../../components/ui";
 export function AdminForm() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [loginId, setLoginId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -17,6 +19,9 @@ export function AdminForm() {
     setSubmitting(true);
     try {
       await api.post("/admin/admins", { loginId });
+      queryClient.invalidateQueries({ queryKey: ["admin", "admins"] });
+      // A promoted user also appears on the Users page (now with admin access).
+      queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
       navigate("/admin/admins", {
         state: { notice: `Admin access was granted to user ${loginId}.` },
       });
