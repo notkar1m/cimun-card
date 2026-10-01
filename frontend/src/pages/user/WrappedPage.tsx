@@ -8,16 +8,9 @@ import { Button } from "../../components/ui";
 interface WrappedStats {
   totalRedeemed: number;
   topVendor: { name: string; count: number } | null;
-  tierBreakdown: { tier: "DIAMOND" | "GOLD" | "SILVER"; count: number }[];
   topTag: { tag: string; count: number } | null;
   firstRedeemedAt: string | null;
 }
-
-const TIER_LABEL: Record<string, string> = {
-  DIAMOND: "Diamond",
-  GOLD: "Gold",
-  SILVER: "Silver",
-};
 
 function firstName(name: string): string {
   return name.trim().split(/\s+/)[0] || name;
@@ -71,36 +64,6 @@ function buildSlides(stats: WrappedStats, delegateName: string): Slide[] {
             {stats.topVendor.count} redemption{stats.topVendor.count === 1 ? "" : "s"} &mdash; you clearly
             knew where to go.
           </p>
-        </>
-      ),
-    });
-  }
-
-  if (stats.tierBreakdown.length > 0) {
-    const maxCount = Math.max(...stats.tierBreakdown.map((t) => t.count));
-    slides.push({
-      key: "tiers",
-      tone: "navy",
-      content: (
-        <>
-          <span className="wrapped-eyebrow">Where you spent it</span>
-          <h1 className="wrapped-headline" style={{ marginBottom: 28 }}>
-            Your tier breakdown
-          </h1>
-          <div className="wrapped-bars">
-            {stats.tierBreakdown.map((t) => (
-              <div className="wrapped-bar-row" key={t.tier}>
-                <span className="wrapped-bar-label">{TIER_LABEL[t.tier]}</span>
-                <div className="wrapped-bar-track">
-                  <div
-                    className={`wrapped-bar-fill wrapped-bar-${t.tier.toLowerCase()}`}
-                    style={{ width: `${Math.max(12, (t.count / maxCount) * 100)}%` }}
-                  />
-                </div>
-                <span className="wrapped-bar-count">{t.count}</span>
-              </div>
-            ))}
-          </div>
         </>
       ),
     });

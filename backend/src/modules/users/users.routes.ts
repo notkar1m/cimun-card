@@ -30,28 +30,6 @@ router.post(
   })
 );
 
-const createTeamMemberSchema = z.object({
-  email: z.string().email(),
-});
-
-router.post(
-  "/team",
-  asyncHandler(async (req, res) => {
-    const { email } = createTeamMemberSchema.parse(req.body);
-    const user = await usersService.createTeamMember(email);
-    res.status(201).json({ user });
-  })
-);
-
-router.post(
-  "/team/bulk-import",
-  asyncHandler(async (req, res) => {
-    const { csv } = bulkImportSchema.parse(req.body);
-    const result = await usersService.bulkImportTeamMembers(csv);
-    res.json(result);
-  })
-);
-
 const LOGIN_ID_SCHEMA = z.string().regex(/^\d{4}$/, "Must be exactly 4 digits");
 
 const createUserSchema = z.object({

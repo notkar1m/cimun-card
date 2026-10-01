@@ -88,6 +88,14 @@ export function UserLayout() {
 
       <main className={isImmersive ? "user-content-immersive" : `user-content${isDrillIn ? " no-tabbar" : ""}`}>
         <Outlet />
+        {!isImmersive && (
+          <p className="user-powered-by">
+            Powered by{" "}
+            <a href="https://matbakh.tech" target="_blank" rel="noopener noreferrer">
+              Matbakh
+            </a>
+          </p>
+        )}
       </main>
 
       {!isDrillIn && !isImmersive && (

@@ -1029,21 +1029,6 @@ tbody tr:hover {
   gap: 16px;
 }
 
-.user-management-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 24px;
-  margin-bottom: 20px;
-}
-
-.user-management-label {
-  margin: 0 0 6px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-}
-
 .settings-list {
   padding: 4px 20px;
 }
@@ -1235,6 +1220,23 @@ tbody tr:hover {
 .user-content-immersive {
   flex: 1;
   display: flex;
+}
+
+.user-powered-by {
+  margin: 28px 0 4px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--color-muted);
+}
+
+.user-powered-by a {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.user-powered-by a:hover {
+  text-decoration: underline;
 }
 
 .user-tabbar {
@@ -1484,23 +1486,6 @@ tbody tr:hover {
   padding: 4px 10px;
   border-radius: 999px;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
-}
-
-.user-diamond-badge {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  background: var(--user-accent);
-  color: var(--user-card-1);
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  padding: 4px 9px 4px 7px;
-  border-radius: 999px;
 }
 
 .user-diamond-body {
@@ -2445,60 +2430,6 @@ tbody tr:hover {
   letter-spacing: -0.03em;
   color: var(--user-accent, #8fd0b6);
   margin: 0 0 8px;
-  font-variant-numeric: tabular-nums;
-}
-
-.wrapped-bars {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.wrapped-bar-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.wrapped-bar-label {
-  width: 62px;
-  flex-shrink: 0;
-  font-size: 13px;
-  font-weight: 700;
-  color: oklch(94% 0.005 258 / 78%);
-}
-
-.wrapped-bar-track {
-  flex: 1;
-  height: 12px;
-  border-radius: 999px;
-  background: oklch(100% 0 0 / 12%);
-  overflow: hidden;
-}
-
-.wrapped-bar-fill {
-  height: 100%;
-  border-radius: 999px;
-  transition: width 400ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.wrapped-bar-diamond {
-  background: oklch(78% 0.09 250);
-}
-
-.wrapped-bar-gold {
-  background: oklch(78% 0.11 82);
-}
-
-.wrapped-bar-silver {
-  background: oklch(85% 0.01 258);
-}
-
-.wrapped-bar-count {
-  width: 24px;
-  flex-shrink: 0;
-  text-align: right;
-  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 

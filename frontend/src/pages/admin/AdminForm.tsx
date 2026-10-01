@@ -4,16 +4,10 @@ import { api } from "../../api/client";
 import { isApiError, useAuth } from "../../auth/AuthContext";
 import { Alert, Button, TextInput } from "../../components/ui";
 
-interface CreateAdminResult {
-  upgradedExisting: boolean;
-}
-
 export function AdminForm() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
-  const [name, setName] = useState("");
-  const [alsoDelegate, setAlsoDelegate] = useState(false);
+  const [loginId, setLoginId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -22,11 +16,9 @@ export function AdminForm() {
     setError(null);
     setSubmitting(true);
     try {
-      const result = await api.post<CreateAdminResult>("/admin/admins", { email, name, alsoDelegate });
+      await api.post("/admin/admins", { loginId });
       navigate("/admin/admins", {
-        state: result.upgradedExisting
-          ? { notice: `${email} already had a delegate account — admin access was added to it.` }
-          : undefined,
+        state: { notice: `Admin access was granted to user ${loginId}.` },
       });
     } catch (err) {
       setError(isApiError(err) ? err.message : "Something went wrong");
@@ -48,44 +40,22 @@ export function AdminForm() {
     <div className="page-narrow" style={{ padding: "8px 16px" }}>
       <h1>New admin</h1>
       <p className="muted">
-        They'll get the same access you have to offers, vendors, and delegates &mdash; except they
-        can't add, remove, or edit other admins. A temporary password will be emailed to them, and
-        they'll be required to change it on first login.
+        Enter the 4-digit ID of an existing user to give them admin access, in addition to their
+        regular user access — they'll keep logging in the same way, with their ID and current
+        password.
       </p>
       {error && <Alert type="error">{error}</Alert>}
       <form onSubmit={handleSubmit} className="card">
         <TextInput
-          id="name"
-          label="Full name"
+          id="loginId"
+          label="User ID"
+          placeholder="4-digit ID"
           required
-          value={name}
-          onChange={(e) => setName(e.target.value)}
+          value={loginId}
+          onChange={(e) => setLoginId(e.target.value)}
         />
-        <TextInput
-          id="email"
-          label="Email"
-          type="email"
-          required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-        <div className="field">
-          <label>
-            <input
-              type="checkbox"
-              checked={alsoDelegate}
-              onChange={(e) => setAlsoDelegate(e.target.checked)}
-              style={{ marginRight: 8 }}
-            />
-            Also a delegate (can browse and redeem offers like any other user)
-          </label>
-        </div>
-        <p className="muted" style={{ marginTop: -6 }}>
-          If this email already belongs to a delegate, admin access is added to that account instead
-          of creating a new one &mdash; this checkbox won't matter in that case.
-        </p>
         <Button type="submit" disabled={submitting}>
-          {submitting ? "Creating..." : "Create admin"}
+          {submitting ? "Granting access..." : "Grant admin access"}
         </Button>
       </form>
     </div>

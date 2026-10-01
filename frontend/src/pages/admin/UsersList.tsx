@@ -3,15 +3,13 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api } from "../../api/client";
 import { isApiError } from "../../auth/AuthContext";
-import { Alert, Button, Modal, Spinner, TextInput } from "../../components/ui";
+import { Alert, Button, Spinner } from "../../components/ui";
 import { CsvImportModal, type CsvColumn } from "../../components/CsvImportModal";
 
-const DELEGATE_CSV_COLUMNS: CsvColumn[] = [
+const USER_CSV_COLUMNS: CsvColumn[] = [
   { name: "name", note: "required" },
   { name: "id", note: "required — 4 digits, e.g. 4821" },
 ];
-
-const TEAM_CSV_COLUMNS: CsvColumn[] = [{ name: "email", note: "required" }];
 
 interface User {
   id: string;
@@ -19,6 +17,7 @@ interface User {
   loginId: string | null;
   name: string;
   phone: string | null;
+  roles: ("SUPERADMIN" | "USER")[];
   mustChangePassword: boolean;
   createdAt: string;
 }
@@ -27,55 +26,6 @@ interface BulkImportUsersResult {
   created: number;
   resolved: { row: number; name: string; loginId: string; tempPassword: string }[];
   errors: { row: number; message: string }[];
-}
-
-interface BulkImportTeamResult {
-  created: number;
-  errors: { row: number; message: string }[];
-}
-
-function NewTeamMemberModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
-  const [email, setEmail] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setSubmitting(true);
-    try {
-      await api.post("/admin/users/team", { email });
-      onCreated();
-      onClose();
-    } catch (err) {
-      setError(isApiError(err) ? err.message : "Something went wrong");
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  return (
-    <Modal title="New team member" onClose={onClose}>
-      <p className="muted" style={{ marginTop: -4 }}>
-        A temporary password will be emailed to them. They'll be required to set a new one (and
-        their name) on first login.
-      </p>
-      {error && <Alert type="error">{error}</Alert>}
-      <form onSubmit={handleSubmit}>
-        <TextInput
-          id="teamEmail"
-          label="Email"
-          type="email"
-          required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-        <Button type="submit" disabled={submitting}>
-          {submitting ? "Creating..." : "Create"}
-        </Button>
-      </form>
-    </Modal>
-  );
 }
 
 export function UsersList() {
@@ -87,17 +37,15 @@ export function UsersList() {
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [resettingId, setResettingId] = useState<string | null>(null);
-  const [resetResult, setResetResult] = useState<{ name: string; message: string } | null>(null);
-  const [showDelegateCsvModal, setShowDelegateCsvModal] = useState(false);
-  const [showTeamCsvModal, setShowTeamCsvModal] = useState(false);
-  const [showNewTeamModal, setShowNewTeamModal] = useState(false);
+  const [resetResult, setResetResult] = useState<{ name: string; tempPassword: string } | null>(null);
+  const [showCsvModal, setShowCsvModal] = useState(false);
 
   function invalidate() {
     queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
   }
 
   async function handleDelete(user: User) {
-    if (!confirm(`Delete the account for ${user.name || user.email || user.loginId}? This can't be undone.`)) return;
+    if (!confirm(`Delete the account for ${user.name || user.loginId}? This can't be undone.`)) return;
     setError(null);
     setDeletingId(user.id);
     try {
@@ -111,21 +59,14 @@ export function UsersList() {
   }
 
   async function handleResetPassword(user: User) {
-    const label = user.name || user.email || user.loginId;
+    const label = user.name || user.loginId;
     if (!confirm(`Reset the password for ${label}? They'll need to set a new one on next login.`)) return;
     setError(null);
     setResetResult(null);
     setResettingId(user.id);
     try {
-      const res = await api.post<{ tempPassword?: string; emailed: boolean }>(
-        `/admin/users/${user.id}/reset-password`
-      );
-      setResetResult({
-        name: label ?? "",
-        message: res.emailed
-          ? "A new temporary password was emailed to them."
-          : `Their new temporary password is ${res.tempPassword} — there's no email to send it to, write it down now.`,
-      });
+      const res = await api.post<{ tempPassword: string }>(`/admin/users/${user.id}/reset-password`);
+      setResetResult({ name: label ?? "", tempPassword: res.tempPassword });
       invalidate();
     } catch (err) {
       setError(isApiError(err) ? err.message : "Something went wrong");
@@ -138,38 +79,23 @@ export function UsersList() {
     <div>
       <div className="space-between">
         <h1>Users</h1>
-      </div>
-
-      <div className="user-management-actions">
-        <div>
-          <p className="muted user-management-label">Delegates (ID login)</p>
-          <div className="row">
-            <Button variant="secondary" onClick={() => setShowDelegateCsvModal(true)}>
-              Upload CSV
-            </Button>
-            <Link to="/admin/users/new">
-              <Button>New user</Button>
-            </Link>
-          </div>
-        </div>
-        <div>
-          <p className="muted user-management-label">Team members (email login)</p>
-          <div className="row">
-            <Button variant="secondary" onClick={() => setShowTeamCsvModal(true)}>
-              Upload CSV
-            </Button>
-            <Button onClick={() => setShowNewTeamModal(true)}>New team member</Button>
-          </div>
+        <div className="row">
+          <Button variant="secondary" onClick={() => setShowCsvModal(true)}>
+            Upload CSV
+          </Button>
+          <Link to="/admin/users/new">
+            <Button>New user</Button>
+          </Link>
         </div>
       </div>
 
-      {showDelegateCsvModal && (
+      {showCsvModal && (
         <CsvImportModal<BulkImportUsersResult>
-          title="Upload delegates from CSV"
+          title="Upload users from CSV"
           endpoint="/admin/users/bulk-import"
-          columns={DELEGATE_CSV_COLUMNS}
+          columns={USER_CSV_COLUMNS}
           resultNoun="user"
-          onClose={() => setShowDelegateCsvModal(false)}
+          onClose={() => setShowCsvModal(false)}
           onImported={invalidate}
           renderExtra={(result) =>
             result.resolved.length > 0 ? (
@@ -205,26 +131,12 @@ export function UsersList() {
         />
       )}
 
-      {showTeamCsvModal && (
-        <CsvImportModal<BulkImportTeamResult>
-          title="Upload team members from CSV"
-          endpoint="/admin/users/team/bulk-import"
-          columns={TEAM_CSV_COLUMNS}
-          resultNoun="team member"
-          onClose={() => setShowTeamCsvModal(false)}
-          onImported={invalidate}
-        />
-      )}
-
-      {showNewTeamModal && (
-        <NewTeamMemberModal onClose={() => setShowNewTeamModal(false)} onCreated={invalidate} />
-      )}
-
       {error && <Alert type="error">{error}</Alert>}
 
       {resetResult && (
         <Alert type="success">
-          {resetResult.name}: {resetResult.message}
+          {resetResult.name}: their new temporary password is <code>{resetResult.tempPassword}</code> —
+          write it down now.
         </Alert>
       )}
 
@@ -241,7 +153,8 @@ export function UsersList() {
           <thead>
             <tr>
               <th>Name</th>
-              <th>ID / Email</th>
+              <th>ID</th>
+              <th>Access</th>
               <th>Status</th>
               <th>Created</th>
               <th />
@@ -253,7 +166,14 @@ export function UsersList() {
                 <td style={{ fontWeight: 600 }}>
                   {u.name || <span className="muted">Not set yet</span>}
                 </td>
-                <td>{u.loginId ?? u.email ?? <span className="muted">&mdash;</span>}</td>
+                <td>{u.loginId ?? <span className="muted">&mdash;</span>}</td>
+                <td>
+                  {u.roles.includes("SUPERADMIN") ? (
+                    <span className="badge">Admin + User</span>
+                  ) : (
+                    <span className="muted">User</span>
+                  )}
+                </td>
                 <td>
                   <span className={`badge ${u.mustChangePassword ? "badge-warning" : "badge-success"}`}>
                     {u.mustChangePassword ? "Awaiting first login" : "Active"}

@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useAuth, type Role } from "../../auth/AuthContext";
 import { isApiError } from "../../auth/AuthContext";
 import { Alert, Button, TextInput } from "../../components/ui";
@@ -28,7 +28,16 @@ export function LoginPage({ role }: { role: Role }) {
     setSubmitting(true);
     try {
       const user = await login(identifier, password, role);
-      navigate(user.mustChangePassword ? "/change-password" : ROLE_HOME[role]);
+      // A sub-admin (a 4-digit-code user who's also been granted admin
+      // access) logs in through this same page with their ID — send them
+      // to the admin dashboard regardless of which login page they used,
+      // same as the root redirect does for a returning session.
+      const destination = user.mustChangePassword
+        ? "/change-password"
+        : user.roles.includes("SUPERADMIN")
+          ? ROLE_HOME.SUPERADMIN
+          : ROLE_HOME[role];
+      navigate(destination);
     } catch (err) {
       setError(isApiError(err) ? err.message : "Something went wrong");
     } finally {
@@ -43,10 +52,11 @@ export function LoginPage({ role }: { role: Role }) {
         {role === "USER" ? (
           <TextInput
             id="identifier"
-            label="ID or email"
+            label="ID"
             type="text"
+            inputMode="numeric"
             autoComplete="username"
-            placeholder="4-digit ID or email"
+            placeholder="4-digit ID"
             required
             value={identifier}
             onChange={(e) => setIdentifier(e.target.value)}
@@ -75,13 +85,6 @@ export function LoginPage({ role }: { role: Role }) {
           {submitting ? "Logging in..." : "Log in"}
         </Button>
       </form>
-      {/* Works for anyone with an email on file (admins, team members). An
-          ID-only delegate has no email to send a link to, so this just
-          shows the generic "if that address exists" message for them — an
-          admin resets their password from the Users page instead. */}
-      <p className="muted" style={{ marginTop: 16 }}>
-        <Link to="/forgot-password">Forgot your password?</Link>
-      </p>
     </>
   );
 

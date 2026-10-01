@@ -1,9 +1,6 @@
 import type { Role } from "@prisma/client";
 import { prisma } from "../../lib/prisma";
 import { hashPassword, verifyPassword } from "../../lib/password";
-import { generateResetToken, hashResetToken } from "../../lib/resetToken";
-import { sendPasswordResetEmail } from "../../lib/mailer";
-import { env } from "../../config/env";
 import { ApiError } from "../../lib/ApiError";
 
 // Admins log in with email; delegates log in with their 4-digit ID.
@@ -74,64 +71,6 @@ export async function changePassword(
       passwordHash,
       mustChangePassword: false,
       ...(name ? { name } : {}),
-    },
-  });
-}
-
-export async function requestPasswordReset(email: string) {
-  const account = await prisma.account.findUnique({ where: { email } });
-
-  // Always behave the same whether or not the account exists, to avoid
-  // account enumeration. An ID-based delegate (no email on file) can't be
-  // found by this lookup at all, so they fall into the same no-op — which
-  // is correct, since there's nowhere to send a reset link. They (or their
-  // admin) use the Reset password action on the Users page instead.
-  if (!account) {
-    return;
-  }
-
-  const { token, tokenHash, expiresAt } = generateResetToken();
-
-  await prisma.account.update({
-    where: { id: account.id },
-    data: { resetTokenHash: tokenHash, resetTokenExpiresAt: expiresAt },
-  });
-
-  const resetUrl = `${env.APP_URL}/reset-password?token=${token}`;
-  try {
-    // Guaranteed non-null: this account was only found via findUnique on a
-    // literal email string, which can never match a NULL column.
-    await sendPasswordResetEmail(account.email!, resetUrl);
-  } catch (err) {
-    // Don't let a mail delivery failure leak whether the account exists via a differing response.
-    console.error("Failed to send password reset email:", err);
-  }
-}
-
-export async function resetPassword(token: string, newPassword: string) {
-  const tokenHash = hashResetToken(token);
-
-  const account = await prisma.account.findFirst({
-    where: { resetTokenHash: tokenHash },
-  });
-
-  if (!account || !account.resetTokenExpiresAt || account.resetTokenExpiresAt < new Date()) {
-    throw new ApiError(400, "INVALID_TOKEN", "This reset link is invalid or has expired");
-  }
-
-  const passwordHash = await hashPassword(newPassword);
-
-  await prisma.account.update({
-    where: { id: account.id },
-    data: {
-      passwordHash,
-      // A legacy account with a blank name still needs to provide one —
-      // that only happens on the forced ChangePasswordPage stop, so
-      // resetting the password alone can't be the thing that lets this
-      // requirement slip through.
-      mustChangePassword: !account.name,
-      resetTokenHash: null,
-      resetTokenExpiresAt: null,
     },
   });
 }

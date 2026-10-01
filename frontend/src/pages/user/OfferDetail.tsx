@@ -129,14 +129,6 @@ export function OfferDetail() {
         ) : (
           <span className="user-hero-monogram">{initials(offer.vendorName)}</span>
         )}
-        {offer.tier === "DIAMOND" && (
-          <span className="user-diamond-badge">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2 4 9l8 13 8-13-8-7Z" />
-            </svg>
-            Diamond
-          </span>
-        )}
         {offer.discountPercent != null && (
           <span className="user-discount-badge">{offer.discountPercent}% OFF</span>
         )}

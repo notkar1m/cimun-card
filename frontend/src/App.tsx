@@ -6,8 +6,6 @@ import { Layout } from "./components/Layout";
 import { UserLayout } from "./components/UserLayout";
 import { AccountIcon, GearIcon, PeopleIcon, ShieldIcon, TagIcon } from "./components/icons";
 import { LoginPage } from "./pages/auth/LoginPage";
-import { ForgotPasswordPage } from "./pages/auth/ForgotPasswordPage";
-import { ResetPasswordPage } from "./pages/auth/ResetPasswordPage";
 import { ChangePasswordPage } from "./pages/auth/ChangePasswordPage";
 import { HomeFeed } from "./pages/user/HomeFeed";
 import { OfferDetail } from "./pages/user/OfferDetail";
@@ -51,8 +49,6 @@ export function App() {
       <Route path="/" element={<RootRedirect />} />
       <Route path="/login/user" element={<LoginPage role="USER" />} />
       <Route path="/login/admin" element={<LoginPage role="SUPERADMIN" />} />
-      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/change-password" element={<ChangePasswordPage />} />
 
       <Route element={<ProtectedRoute role="USER" />}>

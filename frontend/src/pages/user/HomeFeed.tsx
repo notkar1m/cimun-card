@@ -25,17 +25,6 @@ function initials(name: string) {
     .join("");
 }
 
-function DiamondBadge() {
-  return (
-    <span className="user-diamond-badge">
-      <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M12 2 4 9l8 13 8-13-8-7Z" />
-      </svg>
-      Diamond
-    </span>
-  );
-}
-
 function DiamondCard({ offer }: { offer: Offer }) {
   const [imageFailed, setImageFailed] = useState(false);
   const src = imageFailed ? null : offerImageSrc(offer);
@@ -48,7 +37,6 @@ function DiamondCard({ offer }: { offer: Offer }) {
         <span className="user-diamond-monogram">{initials(offer.vendorName)}</span>
       )}
       <span className="user-diamond-scrim" />
-      <DiamondBadge />
       {offer.discountPercent != null && (
         <span className="user-discount-badge">{offer.discountPercent}% OFF</span>
       )}

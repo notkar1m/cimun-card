@@ -7,7 +7,8 @@ import { Alert, Button, Spinner } from "../../components/ui";
 
 interface Admin {
   id: string;
-  email: string;
+  email: string | null;
+  loginId: string | null;
   name: string;
   roles: ("SUPERADMIN" | "USER")[];
   isOwner: boolean;
@@ -28,7 +29,8 @@ export function AdminsList() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   async function handleDelete(admin: Admin) {
-    if (!confirm(`Remove admin access for ${admin.name} (${admin.email})? This can't be undone.`)) return;
+    const label = admin.email ?? admin.loginId;
+    if (!confirm(`Remove admin access for ${admin.name} (${label})? They'll stay a regular user.`)) return;
     setError(null);
     setDeletingId(admin.id);
     try {
@@ -67,7 +69,7 @@ export function AdminsList() {
           <thead>
             <tr>
               <th>Name</th>
-              <th>Email</th>
+              <th>ID / Email</th>
               <th>Access</th>
               <th>Status</th>
               <th>Created</th>
@@ -81,12 +83,12 @@ export function AdminsList() {
                   {a.name}
                   {a.id === user?.id && <span className="muted"> (you)</span>}
                 </td>
-                <td>{a.email}</td>
+                <td>{a.loginId ?? a.email}</td>
                 <td>
                   {a.isOwner ? (
                     <span className="badge badge-success">Owner</span>
                   ) : a.roles.includes("USER") ? (
-                    <span className="badge">Admin + Delegate</span>
+                    <span className="badge">Admin + User</span>
                   ) : (
                     <span className="badge">Admin</span>
                   )}

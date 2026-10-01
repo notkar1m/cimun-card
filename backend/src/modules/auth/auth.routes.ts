@@ -37,14 +37,6 @@ const loginLimiter = rateLimit({
   keyGenerator: accountKey,
 });
 
-const forgotPasswordLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  limit: 5,
-  standardHeaders: true,
-  legacyHeaders: false,
-  keyGenerator: accountKey,
-});
-
 const COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 function setAuthCookie(res: import("express").Response, token: string) {
@@ -127,35 +119,6 @@ router.post(
   asyncHandler(async (req, res) => {
     const { currentPassword, newPassword, name } = changePasswordSchema.parse(req.body);
     await authService.changePassword(req.user!.id, currentPassword, newPassword, { name });
-    res.status(204).send();
-  })
-);
-
-const forgotPasswordSchema = z.object({
-  email: z.string().email(),
-});
-
-router.post(
-  "/forgot-password",
-  forgotPasswordLimiter,
-  asyncHandler(async (req, res) => {
-    const { email } = forgotPasswordSchema.parse(req.body);
-    await authService.requestPasswordReset(email);
-    // Always return success, whether or not the account exists.
-    res.status(204).send();
-  })
-);
-
-const resetPasswordSchema = z.object({
-  token: z.string().min(1),
-  newPassword: z.string().min(8),
-});
-
-router.post(
-  "/reset-password",
-  asyncHandler(async (req, res) => {
-    const { token, newPassword } = resetPasswordSchema.parse(req.body);
-    await authService.resetPassword(token, newPassword);
     res.status(204).send();
   })
 );

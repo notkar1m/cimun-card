@@ -7,16 +7,6 @@ const envSchema = z.object({
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   JWT_SECRET: z.string().min(16),
   JWT_EXPIRES_IN: z.string().default("7d"),
-  SMTP_HOST: z.string().min(1),
-  SMTP_PORT: z.coerce.number(),
-  SMTP_SECURE: z
-    .string()
-    .default("false")
-    .transform((v) => v === "true"),
-  SMTP_USER: z.string().default(""),
-  SMTP_PASS: z.string().default(""),
-  SMTP_FROM: z.string().min(1),
-  APP_URL: z.string().min(1),
   SEED_SUPERADMIN_EMAIL: z.string().email().optional(),
   SEED_SUPERADMIN_PASSWORD: z.string().min(8).optional(),
 });

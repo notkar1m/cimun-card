@@ -19,23 +19,17 @@ router.get(
   })
 );
 
-const createAdminSchema = z.object({
-  email: z.string().email(),
-  name: z.string().min(1),
-  alsoDelegate: z.boolean().optional(),
+const promoteAdminSchema = z.object({
+  loginId: z.string().regex(/^\d{4}$/, "Must be exactly 4 digits"),
 });
 
 router.post(
   "/",
   requireOwner,
   asyncHandler(async (req, res) => {
-    const input = createAdminSchema.parse(req.body);
-    const result = await adminsService.createAdmin({
-      email: input.email,
-      name: input.name,
-      alsoDelegate: input.alsoDelegate ?? false,
-    });
-    res.status(201).json(result);
+    const input = promoteAdminSchema.parse(req.body);
+    const account = await adminsService.promoteToAdmin(input.loginId);
+    res.status(201).json({ account });
   })
 );
 
@@ -43,7 +37,7 @@ router.delete(
   "/:id",
   requireOwner,
   asyncHandler(async (req, res) => {
-    await adminsService.deleteAdmin(req.params.id, req.user!.id);
+    await adminsService.demoteAdmin(req.params.id, req.user!.id);
     res.status(204).send();
   })
 );
