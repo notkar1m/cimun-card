@@ -92,7 +92,7 @@ export function HomeFeed() {
   });
 
   const offers = data?.offers ?? [];
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
   const allTags = useMemo(() => {
@@ -102,19 +102,19 @@ export function HomeFeed() {
   }, [offers]);
 
   function toggleTag(tag: string) {
-    setSelectedTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
+    setSelectedTag((prev) => (prev === tag ? null : tag));
   }
 
   const filteredOffers = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return offers.filter((o) => {
-      if (selectedTags.length > 0 && !o.tags.some((t) => selectedTags.includes(t))) return false;
+      if (selectedTag && !o.tags.includes(selectedTag)) return false;
       if (q && !o.title.toLowerCase().includes(q) && !o.vendorName.toLowerCase().includes(q)) {
         return false;
       }
       return true;
     });
-  }, [offers, selectedTags, searchQuery]);
+  }, [offers, selectedTag, searchQuery]);
 
   const { diamondOffers, gridOffers } = useMemo(
     () => ({
@@ -175,8 +175,8 @@ export function HomeFeed() {
         <div className="user-tag-filter">
           <button
             type="button"
-            className={`user-tag-pill${selectedTags.length === 0 ? " active" : ""}`}
-            onClick={() => setSelectedTags([])}
+            className={`user-tag-pill${selectedTag === null ? " active" : ""}`}
+            onClick={() => setSelectedTag(null)}
           >
             All
           </button>
@@ -184,7 +184,7 @@ export function HomeFeed() {
             <button
               key={tag}
               type="button"
-              className={`user-tag-pill${selectedTags.includes(tag) ? " active" : ""}`}
+              className={`user-tag-pill${selectedTag === tag ? " active" : ""}`}
               onClick={() => toggleTag(tag)}
             >
               {tag}

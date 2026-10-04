@@ -3,6 +3,7 @@ import { z } from "zod";
 import { asyncHandler } from "../../middleware/asyncHandler";
 import { requireAuth } from "../../middleware/auth";
 import { requireRole } from "../../middleware/requireRole";
+import { requireOwner } from "../../middleware/requireOwner";
 import * as settingsService from "./settings.service";
 
 // Readable by any authenticated account (delegate or admin) — these are
@@ -26,8 +27,10 @@ const updateSettingsSchema = z.object({
   wrappedEnabled: z.boolean().optional(),
 });
 
+// Any admin can read these (the public GET above); only the owner changes them.
 adminSettingsRouter.patch(
   "/",
+  requireOwner,
   asyncHandler(async (req, res) => {
     const input = updateSettingsSchema.parse(req.body);
     const settings = await settingsService.updateSettings(input);

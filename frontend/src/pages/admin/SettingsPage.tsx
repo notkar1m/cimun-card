@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
-import { isApiError } from "../../auth/AuthContext";
+import { isApiError, useAuth } from "../../auth/AuthContext";
 import { Alert, Spinner, Toggle } from "../../components/ui";
 
 interface Settings {
@@ -11,6 +11,8 @@ interface Settings {
 
 export function SettingsPage() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const isOwner = !!user?.isOwner;
   const { data, isLoading } = useQuery({
     queryKey: ["settings"],
     queryFn: () => api.get<{ settings: Settings }>("/settings"),
@@ -37,6 +39,11 @@ export function SettingsPage() {
     <div className="page-narrow" style={{ padding: "8px 16px" }}>
       <h1>Settings</h1>
       <p className="muted">Control which delegate-facing features are turned on.</p>
+      {!isOwner && (
+        <p className="muted" style={{ marginTop: -8 }}>
+          You can see these settings, but only the account owner can change them.
+        </p>
+      )}
 
       {error && <Alert type="error">{error}</Alert>}
 
@@ -53,7 +60,7 @@ export function SettingsPage() {
             </div>
             <Toggle
               checked={settings.mapTabEnabled}
-              disabled={savingKey === "mapTabEnabled"}
+              disabled={!isOwner || savingKey === "mapTabEnabled"}
               onChange={(value) => handleToggle("mapTabEnabled", value)}
             />
           </div>
@@ -68,7 +75,7 @@ export function SettingsPage() {
             </div>
             <Toggle
               checked={settings.wrappedEnabled}
-              disabled={savingKey === "wrappedEnabled"}
+              disabled={!isOwner || savingKey === "wrappedEnabled"}
               onChange={(value) => handleToggle("wrappedEnabled", value)}
             />
           </div>

@@ -1,6 +1,7 @@
 import { prisma } from "../../lib/prisma";
 import { hashPassword } from "../../lib/password";
 import { ApiError } from "../../lib/ApiError";
+import { invalidateAuthAccount } from "../../lib/authAccount";
 import { parseCsv } from "../../lib/csv";
 
 const LOGIN_ID_PATTERN = /^\d{4}$/;
@@ -16,7 +17,7 @@ function tempPasswordFor(name: string, loginId: string): string {
 }
 
 export async function listUsers() {
-  return prisma.account.findMany({
+  const users = await prisma.account.findMany({
     where: { roles: { has: "USER" } },
     select: {
       id: true,
@@ -27,9 +28,70 @@ export async function listUsers() {
       roles: true,
       mustChangePassword: true,
       createdAt: true,
+      _count: { select: { activations: { where: { status: "REDEEMED" } } } },
     },
     orderBy: { createdAt: "desc" },
   });
+
+  return users.map(({ _count, ...user }) => ({ ...user, totalRedemptions: _count.activations }));
+}
+
+export interface UserRedemptions {
+  user: { id: string; name: string; loginId: string | null };
+  total: number;
+  // Only offers this user has actually redeemed, most-redeemed first.
+  byOffer: { offerId: string; title: string; vendorName: string; count: number }[];
+  // Newest first.
+  history: { id: string; offerId: string; offerTitle: string; vendorName: string; redeemedAt: Date }[];
+}
+
+export async function getUserRedemptions(id: string): Promise<UserRedemptions> {
+  const account = await prisma.account.findUnique({
+    where: { id },
+    select: { id: true, name: true, loginId: true, roles: true },
+  });
+  if (!account || !account.roles.includes("USER")) {
+    throw new ApiError(404, "NOT_FOUND", "User not found");
+  }
+
+  const activations = await prisma.activation.findMany({
+    where: { userId: id, status: "REDEEMED" },
+    select: {
+      id: true,
+      activatedAt: true,
+      redeemedAt: true,
+      offer: { select: { id: true, title: true, vendorName: true } },
+    },
+    orderBy: { activatedAt: "desc" },
+  });
+
+  const history = activations.map((a) => ({
+    id: a.id,
+    offerId: a.offer.id,
+    offerTitle: a.offer.title,
+    vendorName: a.offer.vendorName,
+    redeemedAt: a.redeemedAt ?? a.activatedAt,
+  }));
+
+  const byOfferMap = new Map<string, UserRedemptions["byOffer"][number]>();
+  for (const h of history) {
+    const entry = byOfferMap.get(h.offerId);
+    if (entry) {
+      entry.count += 1;
+    } else {
+      byOfferMap.set(h.offerId, { offerId: h.offerId, title: h.offerTitle, vendorName: h.vendorName, count: 1 });
+    }
+  }
+  const byOffer = [...byOfferMap.values()].sort(
+    (a, b) => b.count - a.count || a.title.localeCompare(b.title)
+  );
+
+  return {
+    user: { id: account.id, name: account.name, loginId: account.loginId },
+    total: history.length,
+    byOffer,
+    history,
+  };
 }
 
 export async function createUser(input: { name: string; loginId: string }) {
@@ -169,6 +231,7 @@ export async function deleteUser(id: string) {
   }
 
   await prisma.account.delete({ where: { id } });
+  invalidateAuthAccount(id);
 }
 
 export async function updateUser(

@@ -17,6 +17,14 @@ router.get(
   })
 );
 
+router.get(
+  "/:id/redemptions",
+  asyncHandler(async (req, res) => {
+    const redemptions = await usersService.getUserRedemptions(req.params.id);
+    res.json(redemptions);
+  })
+);
+
 const bulkImportSchema = z.object({
   csv: z.string().min(1),
 });

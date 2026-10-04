@@ -1,5 +1,6 @@
 import { prisma } from "../../lib/prisma";
 import { ApiError } from "../../lib/ApiError";
+import { invalidateAuthAccount } from "../../lib/authAccount";
 
 export async function listAdmins() {
   return prisma.account.findMany({
@@ -33,11 +34,13 @@ export async function promoteToAdmin(loginId: string) {
     throw new ApiError(409, "ALREADY_ADMIN", "This user is already an admin");
   }
 
-  return prisma.account.update({
+  const account = await prisma.account.update({
     where: { id: existing.id },
     data: { roles: { push: "SUPERADMIN" } },
     select: { id: true, loginId: true, name: true, roles: true, isOwner: true },
   });
+  invalidateAuthAccount(account.id);
+  return account;
 }
 
 // Revokes admin-panel access only — the account stays a regular user with
@@ -60,4 +63,5 @@ export async function demoteAdmin(id: string, requesterId: string) {
     where: { id },
     data: { roles: { set: account.roles.filter((role) => role !== "SUPERADMIN") } },
   });
+  invalidateAuthAccount(id);
 }

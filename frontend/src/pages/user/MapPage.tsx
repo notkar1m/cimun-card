@@ -171,7 +171,7 @@ export function MapPage() {
   const branches = data?.branches ?? [];
   const [myLocation, setMyLocation] = useState<[number, number] | null>(null);
   const [locateError, setLocateError] = useState<string | null>(null);
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
   const allTags = useMemo(() => {
@@ -181,13 +181,13 @@ export function MapPage() {
   }, [branches]);
 
   function toggleTag(tag: string) {
-    setSelectedTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
+    setSelectedTag((prev) => (prev === tag ? null : tag));
   }
 
   const filteredBranches = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return branches.filter((b) => {
-      if (selectedTags.length > 0 && !b.tags.some((t) => selectedTags.includes(t))) return false;
+      if (selectedTag && !b.tags.includes(selectedTag)) return false;
       if (
         q &&
         !b.offerTitle.toLowerCase().includes(q) &&
@@ -198,7 +198,7 @@ export function MapPage() {
       }
       return true;
     });
-  }, [branches, selectedTags, searchQuery]);
+  }, [branches, selectedTag, searchQuery]);
 
   const center = useMemo<[number, number]>(() => {
     if (branches.length === 0) return CAIRO_CENTER;
@@ -260,8 +260,8 @@ export function MapPage() {
         <div className="user-tag-filter">
           <button
             type="button"
-            className={`user-tag-pill${selectedTags.length === 0 ? " active" : ""}`}
-            onClick={() => setSelectedTags([])}
+            className={`user-tag-pill${selectedTag === null ? " active" : ""}`}
+            onClick={() => setSelectedTag(null)}
           >
             All
           </button>
@@ -269,7 +269,7 @@ export function MapPage() {
             <button
               key={tag}
               type="button"
-              className={`user-tag-pill${selectedTags.includes(tag) ? " active" : ""}`}
+              className={`user-tag-pill${selectedTag === tag ? " active" : ""}`}
               onClick={() => toggleTag(tag)}
             >
               {tag}

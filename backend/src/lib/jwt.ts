@@ -1,11 +1,10 @@
 import jwt from "jsonwebtoken";
 import { env } from "../config/env";
-import type { Role } from "@prisma/client";
 
+// Identity only. Roles and ownership are looked up fresh on each request
+// (see lib/authAccount.ts) so they can't go stale inside a long-lived token.
 export interface AuthTokenPayload {
   sub: string;
-  roles: Role[];
-  isOwner: boolean;
 }
 
 export function signAuthToken(payload: AuthTokenPayload): string {

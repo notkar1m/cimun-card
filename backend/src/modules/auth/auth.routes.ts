@@ -86,7 +86,7 @@ router.post(
     const { identifier, password, expectedRole } = loginSchema.parse(req.body);
     const account = await authService.login(identifier, password, expectedRole);
 
-    const token = signAuthToken({ sub: account.id, roles: account.roles, isOwner: account.isOwner });
+    const token = signAuthToken({ sub: account.id });
     setAuthCookie(res, token);
 
     res.json({ user: serializeAccount(account) });

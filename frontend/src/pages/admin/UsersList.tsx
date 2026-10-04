@@ -5,6 +5,7 @@ import { api } from "../../api/client";
 import { isApiError } from "../../auth/AuthContext";
 import { Alert, Button, Spinner } from "../../components/ui";
 import { CsvImportModal, type CsvColumn } from "../../components/CsvImportModal";
+import { UserRedemptionsModal } from "./UserRedemptionsModal";
 
 const USER_CSV_COLUMNS: CsvColumn[] = [
   { name: "name", note: "required" },
@@ -20,6 +21,7 @@ interface User {
   roles: ("SUPERADMIN" | "USER")[];
   mustChangePassword: boolean;
   createdAt: string;
+  totalRedemptions: number;
 }
 
 interface BulkImportUsersResult {
@@ -30,15 +32,18 @@ interface BulkImportUsersResult {
 
 export function UsersList() {
   const queryClient = useQueryClient();
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error: loadError } = useQuery({
     queryKey: ["admin", "users"],
     queryFn: () => api.get<{ users: User[] }>("/admin/users"),
+    // Redemption counts move while an event is running; don't show a 30s-old number.
+    staleTime: 0,
   });
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [resettingId, setResettingId] = useState<string | null>(null);
   const [resetResult, setResetResult] = useState<{ name: string; tempPassword: string } | null>(null);
   const [showCsvModal, setShowCsvModal] = useState(false);
+  const [viewingRedemptions, setViewingRedemptions] = useState<User | null>(null);
 
   function invalidate() {
     queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
@@ -131,7 +136,20 @@ export function UsersList() {
         />
       )}
 
+      {viewingRedemptions && (
+        <UserRedemptionsModal
+          userId={viewingRedemptions.id}
+          userLabel={viewingRedemptions.name || viewingRedemptions.loginId || "User"}
+          onClose={() => setViewingRedemptions(null)}
+        />
+      )}
+
       {error && <Alert type="error">{error}</Alert>}
+      {loadError && (
+        <Alert type="error">
+          {isApiError(loadError) ? loadError.message : "Couldn't load users"}
+        </Alert>
+      )}
 
       {resetResult && (
         <Alert type="success">
@@ -142,7 +160,7 @@ export function UsersList() {
 
       {isLoading ? (
         <Spinner />
-      ) : (data?.users ?? []).length === 0 ? (
+      ) : loadError ? null : (data?.users ?? []).length === 0 ? (
         <div className="card">
           <p className="muted" style={{ margin: 0 }}>
             No users yet. Create one to get started.
@@ -156,6 +174,7 @@ export function UsersList() {
               <th>ID</th>
               <th>Access</th>
               <th>Status</th>
+              <th>Redemptions</th>
               <th>Created</th>
               <th />
             </tr>
@@ -178,6 +197,21 @@ export function UsersList() {
                   <span className={`badge ${u.mustChangePassword ? "badge-warning" : "badge-success"}`}>
                     {u.mustChangePassword ? "Awaiting first login" : "Active"}
                   </span>
+                </td>
+                <td>
+                  {u.totalRedemptions > 0 ? (
+                    <button
+                      type="button"
+                      className="link-btn"
+                      style={{ fontSize: 14, margin: 0 }}
+                      onClick={() => setViewingRedemptions(u)}
+                      aria-label={`View ${u.totalRedemptions} redemptions for ${u.name || u.loginId}`}
+                    >
+                      {u.totalRedemptions}
+                    </button>
+                  ) : (
+                    <span className="muted">0</span>
+                  )}
                 </td>
                 <td>{new Date(u.createdAt).toLocaleDateString()}</td>
                 <td>
