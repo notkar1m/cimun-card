@@ -1,15 +1,9 @@
 import { useState, type FormEvent } from "react";
-import { Link, Navigate, useNavigate } from "react-router-dom";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { api } from "../../api/client";
-import { isApiError, useAuth, type AuthUser } from "../../auth/AuthContext";
+import { isApiError, useAuth } from "../../auth/AuthContext";
 import { Alert, Button, TextInput } from "../../components/ui";
 import { useAppSettings } from "../../lib/useAppSettings";
-
-// A dual-role account (admin + delegate) lands in the admin dashboard,
-// matching RootRedirect's default for the same account.
-function homeFor(user: AuthUser): string {
-  return user.roles.includes("SUPERADMIN") ? "/admin/offers" : "/app/home";
-}
 
 function initials(name: string) {
   return name
@@ -24,6 +18,7 @@ export function ChangePasswordPage({ embedded = false }: { embedded?: boolean } 
   const { user, refresh } = useAuth();
   const settings = useAppSettings();
   const navigate = useNavigate();
+  const location = useLocation();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [name, setName] = useState("");
@@ -38,18 +33,28 @@ export function ChangePasswordPage({ embedded = false }: { embedded?: boolean } 
   // required at signup — every current creation path already requires it.
   const needsName = !user.name;
 
+  // First login: they just typed the temporary password to get in, so only ask for the new one.
+  const askCurrentPassword = !user.mustChangePassword;
+
+  // Stay where they were; from the first-login page, let "/" pick the right home.
+  const destination = location.pathname.startsWith("/admin")
+    ? "/admin/offers"
+    : embedded
+      ? "/app/home"
+      : "/";
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
     try {
       await api.post("/auth/change-password", {
-        currentPassword,
+        ...(askCurrentPassword ? { currentPassword } : {}),
         newPassword,
         ...(needsName ? { name } : {}),
       });
       await refresh();
-      navigate(homeFor(user!));
+      navigate(destination);
     } catch (err) {
       setError(isApiError(err) ? err.message : "Something went wrong");
     } finally {
@@ -70,15 +75,17 @@ export function ChangePasswordPage({ embedded = false }: { embedded?: boolean } 
             onChange={(e) => setName(e.target.value)}
           />
         )}
-        <TextInput
-          id="currentPassword"
-          label="Current password"
-          type="password"
-          autoComplete="current-password"
-          required
-          value={currentPassword}
-          onChange={(e) => setCurrentPassword(e.target.value)}
-        />
+        {askCurrentPassword && (
+          <TextInput
+            id="currentPassword"
+            label="Current password"
+            type="password"
+            autoComplete="current-password"
+            required
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+          />
+        )}
         <TextInput
           id="newPassword"
           label="New password"

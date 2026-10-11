@@ -44,15 +44,26 @@ export async function getAccountById(id: string) {
 
 export async function changePassword(
   accountId: string,
-  currentPassword: string,
+  currentPassword: string | undefined,
   newPassword: string,
   profile?: { name?: string }
 ) {
   const account = await getAccountById(accountId);
 
-  const valid = await verifyPassword(currentPassword, account.passwordHash);
-  if (!valid) {
-    throw new ApiError(401, "INVALID_CREDENTIALS", "Current password is incorrect");
+  if (account.mustChangePassword) {
+    // First login: they just typed the temporary password to get in, so don't ask again.
+    // It's derived from their name and ID, so it can't also be the one they keep.
+    if (await verifyPassword(newPassword, account.passwordHash)) {
+      throw new ApiError(400, "PASSWORD_UNCHANGED", "Choose a password different from your temporary one");
+    }
+  } else {
+    if (!currentPassword) {
+      throw new ApiError(400, "CURRENT_PASSWORD_REQUIRED", "Your current password is required");
+    }
+    const valid = await verifyPassword(currentPassword, account.passwordHash);
+    if (!valid) {
+      throw new ApiError(401, "INVALID_CREDENTIALS", "Current password is incorrect");
+    }
   }
 
   // Defensive fallback for any legacy account that predates name being a

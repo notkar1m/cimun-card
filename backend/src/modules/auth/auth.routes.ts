@@ -108,7 +108,7 @@ router.get(
 );
 
 const changePasswordSchema = z.object({
-  currentPassword: z.string().min(1),
+  currentPassword: z.string().optional(),
   newPassword: z.string().min(8),
   name: z.string().trim().min(1).max(100).optional(),
 });
